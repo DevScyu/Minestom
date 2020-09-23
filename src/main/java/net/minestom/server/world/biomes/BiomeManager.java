@@ -29,7 +29,7 @@ public class BiomeManager {
      * @param biome the biome to add
      */
     public void addBiome(Biome biome) {
-        this.biomes.put(biome.getId(), biome);
+        this.biomes.put(Biomes.valueOf(biome.getName().getPath().toUpperCase()).getBiomeID(), biome);
     }
 
     /**
