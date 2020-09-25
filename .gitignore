@@ -59,3 +59,4 @@ extensions/
 
 ## Maven
 /target/
+/out/
