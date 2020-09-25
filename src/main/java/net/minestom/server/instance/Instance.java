@@ -103,7 +103,7 @@ public abstract class Instance implements BlockModifier, EventHandler, DataConta
      * @param callback the task to execute during the next instance tick
      */
     public void scheduleNextTick(Consumer<Instance> callback) {
-        nextTick.add(callback);
+        this.nextTick.add(callback);
     }
 
     /**
@@ -375,7 +375,7 @@ public abstract class Instance implements BlockModifier, EventHandler, DataConta
     /**
      * Get a {@link TimeUpdatePacket} with the current age and time of this instance
      *
-     * @return the {@link TimeUpdatePacket} with this instance datal
+     * @return the {@link TimeUpdatePacket} with this instance data
      */
     private TimeUpdatePacket getTimePacket() {
         TimeUpdatePacket timeUpdatePacket = new TimeUpdatePacket();
@@ -590,7 +590,7 @@ public abstract class Instance implements BlockModifier, EventHandler, DataConta
     /**
      * Send a {@link BlockActionPacket} for all the viewers of the specific position
      *
-     * @param blockPosition
+     * @param blockPosition the block position
      * @param actionId
      * @param actionParam
      * @see <a href="https://wiki.vg/Protocol#Block_Action">Packet information</a> for the action id &amp; param

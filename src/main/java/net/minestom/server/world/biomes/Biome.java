@@ -55,7 +55,7 @@ public class Biome {
 	public NBTCompound toNbt() {
 		NBTCompound nbt = new NBTCompound();
 		nbt.setString("name", name.toString());
-		nbt.setInt("id", id);
+		nbt.setInt("id", getId());
 
 		NBTCompound element = new NBTCompound();
 		element.setFloat("depth", depth);
