@@ -54,7 +54,7 @@ public class InstanceContainer extends Instance {
 
     private ChunkGenerator chunkGenerator;
     private final ConcurrentHashMap<Long, Chunk> chunks = new ConcurrentHashMap<>();
-    private final Set<Chunk> scheduledChunksToRemove = new HashSet<>();
+    protected final Set<Chunk> scheduledChunksToRemove = new HashSet<>();
 
     private ReadWriteLock changingBlockLock = new ReentrantReadWriteLock();
     private Map<BlockPosition, Block> currentlyChangingBlocks = new HashMap<>();
@@ -106,8 +106,50 @@ public class InstanceContainer extends Instance {
         setBlock(x, y, z, blockStateId, customBlock, data);
     }
 
+    /**
+     * Set a block at the position
+     * <p>
+     * Verifies if the {@link Chunk} at the position is loaded, place the block if yes.
+     * Otherwise, check if {@link #hasEnabledAutoChunkLoad()} is true to load the chunk automatically and place the block.
+     *
+     * @param x            the block X
+     * @param y            the block Y
+     * @param z            the block Z
+     * @param blockStateId the block state id
+     * @param customBlock  the {@link CustomBlock}, null if none
+     * @param data         the {@link Data}, null if none
+     */
     private synchronized void setBlock(int x, int y, int z, short blockStateId, CustomBlock customBlock, Data data) {
         final Chunk chunk = getChunkAt(x, z);
+        if (ChunkUtils.isLoaded(chunk)) {
+            UNSAFE_setBlock(chunk, x, y, z, blockStateId, customBlock, data);
+        } else {
+            if (hasEnabledAutoChunkLoad()) {
+                final int chunkX = ChunkUtils.getChunkCoordinate((int) x);
+                final int chunkZ = ChunkUtils.getChunkCoordinate((int) z);
+                loadChunk(chunkX, chunkZ, c -> {
+                    UNSAFE_setBlock(c, x, y, z, blockStateId, customBlock, data);
+                });
+            } else {
+                throw new IllegalStateException("Tried to set a block to an unloaded chunk with auto chunk load disabled");
+            }
+        }
+    }
+
+    /**
+     * Set a block at the position
+     * <p>
+     * Unsafe because the method is not synchronized and it does not verify if the chunk is loaded or not
+     *
+     * @param chunk        the {@link Chunk} which should be loaded
+     * @param x            the block X
+     * @param y            the block Y
+     * @param z            the block Z
+     * @param blockStateId the block state id
+     * @param customBlock  the {@link CustomBlock}, null if none
+     * @param data         the {@link Data}, null if none
+     */
+    private void UNSAFE_setBlock(Chunk chunk, int x, int y, int z, short blockStateId, CustomBlock customBlock, Data data) {
         synchronized (chunk) {
 
             final boolean isCustomBlock = customBlock != null;
@@ -146,7 +188,7 @@ public class InstanceContainer extends Instance {
             }
 
             // Set the block
-            chunk.setBlock(x, y, z, blockStateId, customBlockId, data, hasUpdate);
+            chunk.UNSAFE_setBlock(x, y, z, blockStateId, customBlockId, data, hasUpdate);
 
             // Refresh neighbors since a new block has been placed
             executeNeighboursBlockPlacementRule(blockPosition);
@@ -200,7 +242,7 @@ public class InstanceContainer extends Instance {
      * @param blockPosition the block position
      */
     private void callBlockDestroy(Chunk chunk, int index, CustomBlock previousBlock, BlockPosition blockPosition) {
-        final Data previousData = chunk.getData(index);
+        final Data previousData = chunk.getBlockData(index);
         previousBlock.onDestroy(this, blockPosition, previousData);
     }
 
@@ -210,14 +252,14 @@ public class InstanceContainer extends Instance {
      * WARNING {@code chunk} needs to be synchronized
      *
      * @param chunk         the chunk where the block is
-     * @param index         the index of the block
+     * @param index         the block index
      * @param blockPosition the block position
      */
     private void callBlockPlace(Chunk chunk, int index, BlockPosition blockPosition) {
         final CustomBlock actualBlock = chunk.getCustomBlock(index);
         if (actualBlock == null)
             return;
-        final Data previousData = chunk.getData(index);
+        final Data previousData = chunk.getBlockData(index);
         actualBlock.onPlace(this, blockPosition, previousData);
     }
 
@@ -310,8 +352,8 @@ public class InstanceContainer extends Instance {
 
         PlayerBlockBreakEvent blockBreakEvent = new PlayerBlockBreakEvent(player, blockPosition, blockStateId, customBlock, (short) 0, (short) 0);
         player.callEvent(PlayerBlockBreakEvent.class, blockBreakEvent);
-        final boolean result = !blockBreakEvent.isCancelled();
-        if (result) {
+        final boolean allowed = !blockBreakEvent.isCancelled();
+        if (allowed) {
             // Break or change the broken block based on event result
             setSeparateBlocks(x, y, z, blockBreakEvent.getResultBlockStateId(), blockBreakEvent.getResultCustomBlockId());
 
@@ -329,12 +371,9 @@ public class InstanceContainer extends Instance {
                 }
             });
 
-        } else {
-            // Cancelled so we need to refresh player chunk section
-            final int section = ChunkUtils.getSectionAt(blockPosition.getY());
-            chunk.sendChunkSectionUpdate(section, player);
         }
-        return result;
+
+        return allowed;
     }
 
     @Override
@@ -345,7 +384,7 @@ public class InstanceContainer extends Instance {
             if (callback != null)
                 callback.accept(chunk);
         } else {
-            // Retrieve chunk from somewhere else (file or create a new use using the ChunkGenerator)
+            // Retrieve chunk from somewhere else (file or create a new one using the ChunkGenerator)
             retrieveChunk(chunkX, chunkZ, callback);
         }
     }
@@ -421,13 +460,11 @@ public class InstanceContainer extends Instance {
 
     @Override
     public void saveChunkToStorage(Chunk chunk, Runnable callback) {
-        Check.notNull(getStorageLocation(), "You cannot save the chunk if no StorageLocation has been defined");
         chunkLoader.saveChunk(chunk, callback);
     }
 
     @Override
     public void saveChunksToStorage(Runnable callback) {
-        Check.notNull(getStorageLocation(), "You cannot save the instance if no StorageLocation has been defined");
         if (chunkLoader.supportsParallelSaving()) {
             ExecutorService parallelSavingThreadPool = new MinestomThread(MinecraftServer.THREAD_COUNT_PARALLEL_CHUNK_SAVING, MinecraftServer.THREAD_NAME_PARALLEL_CHUNK_SAVING, true);
             getChunks().forEach(c -> parallelSavingThreadPool.execute(() -> {
@@ -660,7 +697,7 @@ public class InstanceContainer extends Instance {
      * <p>
      * Unsafe because it has to be done on the same thread as the instance/chunks tick update
      */
-    private void UNSAFE_unloadChunks() {
+    protected void UNSAFE_unloadChunks() {
         synchronized (this.scheduledChunksToRemove) {
             for (Chunk chunk : scheduledChunksToRemove) {
                 final int chunkX = chunk.getChunkX();

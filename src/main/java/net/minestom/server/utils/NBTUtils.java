@@ -140,9 +140,11 @@ public final class NBTUtils {
         if (nbt.containsKey("AttributeModifiers")) {
             NBTList<NBTCompound> attributes = nbt.getList("AttributeModifiers");
             for (NBTCompound attributeNBT : attributes) {
-                final long uuidMost = attributeNBT.getLong("UUIDMost");
-                final long uuidLeast = attributeNBT.getLong("UUIDLeast");
-                final UUID uuid = new UUID(uuidMost, uuidLeast);
+                final UUID uuid;
+                {
+                    final int[] uuidArray = attributeNBT.getIntArray("UUID");
+                    uuid = Utils.intArrayToUuid(uuidArray);
+                }
                 final double value = attributeNBT.getDouble("Amount");
                 final String slot = attributeNBT.getString("Slot");
                 final String attributeName = attributeNBT.getString("AttributeName");
@@ -153,14 +155,16 @@ public final class NBTUtils {
                 // Wrong attribute name, stop here
                 if (attribute == null)
                     break;
-                final AttributeOperation attributeOperation = AttributeOperation.byId(operation);
+                final AttributeOperation attributeOperation = AttributeOperation.fromId(operation);
                 // Wrong attribute operation, stop here
-                if (attributeOperation == null)
+                if (attributeOperation == null) {
                     break;
+                }
                 final AttributeSlot attributeSlot = AttributeSlot.valueOf(slot.toUpperCase());
                 // Wrong attribute slot, stop here
-                if (attributeSlot == null)
+                if (attributeSlot == null) {
                     break;
+                }
 
                 // Add attribute
                 final ItemAttribute itemAttribute =
@@ -275,14 +279,12 @@ public final class NBTUtils {
 
                 for (ItemAttribute itemAttribute : itemAttributes) {
                     final UUID uuid = itemAttribute.getUuid();
-
                     attributesNBT.add(
                             new NBTCompound()
-                                    .setLong("UUIDMost", uuid.getMostSignificantBits())
-                                    .setLong("UUIDLeast", uuid.getLeastSignificantBits())
+                                    .setIntArray("UUID", Utils.uuidToIntArray(uuid))
                                     .setDouble("Amount", itemAttribute.getValue())
                                     .setString("Slot", itemAttribute.getSlot().name().toLowerCase())
-                                    .setString("itemAttribute", itemAttribute.getAttribute().getKey())
+                                    .setString("AttributeName", itemAttribute.getAttribute().getKey())
                                     .setInt("Operation", itemAttribute.getOperation().getId())
                                     .setString("Name", itemAttribute.getInternalName())
                     );
