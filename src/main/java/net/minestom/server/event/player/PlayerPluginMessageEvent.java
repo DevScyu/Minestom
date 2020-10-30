@@ -2,9 +2,10 @@ package net.minestom.server.event.player;
 
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.Event;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Called when a player send {@link net.minestom.server.network.packet.client.play.ClientPluginMessagePacket}
+ * Called when a player send {@link net.minestom.server.network.packet.client.play.ClientPluginMessagePacket}.
  */
 public class PlayerPluginMessageEvent extends Event {
 
@@ -12,44 +13,48 @@ public class PlayerPluginMessageEvent extends Event {
     private final String identifier;
     private final byte[] message;
 
-    public PlayerPluginMessageEvent(Player player, String identifier, byte[] message) {
+    public PlayerPluginMessageEvent(@NotNull Player player, @NotNull String identifier, @NotNull byte[] message) {
         this.player = player;
         this.identifier = identifier;
         this.message = message;
     }
 
     /**
-     * Get the player who sent the message
+     * Gets the player who sent the message.
      *
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Get the message identifier
+     * Gets the message identifier.
      *
      * @return the identifier
      */
+    @NotNull
     public String getIdentifier() {
         return identifier;
     }
 
     /**
-     * Get the message data as a byte array
+     * Gets the message data as a byte array.
      *
      * @return the message
      */
+    @NotNull
     public byte[] getMessage() {
         return message;
     }
 
     /**
-     * Get the message data as a String
+     * Gets the message data as a String.
      *
      * @return the message
      */
+    @NotNull
     public String getMessageString() {
         return new String(message);
     }

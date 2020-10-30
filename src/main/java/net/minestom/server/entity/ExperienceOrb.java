@@ -2,6 +2,7 @@ package net.minestom.server.entity;
 
 import net.minestom.server.network.packet.server.play.SpawnExperienceOrbPacket;
 import net.minestom.server.network.player.PlayerConnection;
+import org.jetbrains.annotations.NotNull;
 
 public class ExperienceOrb extends Entity {
 
@@ -25,7 +26,7 @@ public class ExperienceOrb extends Entity {
     }
 
     @Override
-    public boolean addViewer(Player player) {
+    public boolean addViewer(@NotNull Player player) {
         final boolean result = super.addViewer(player); // Add player to viewers list
         if (!result)
             return false;
@@ -44,7 +45,7 @@ public class ExperienceOrb extends Entity {
     }
 
     /**
-     * Get the experience count
+     * Gets the experience count.
      *
      * @return the experience count
      */
@@ -53,7 +54,7 @@ public class ExperienceOrb extends Entity {
     }
 
     /**
-     * Change the experience count
+     * Changes the experience count.
      *
      * @param experienceCount the new experience count
      */

@@ -3,60 +3,64 @@ package net.minestom.server.event.entity;
 import net.minestom.server.entity.ItemEntity;
 import net.minestom.server.event.CancellableEvent;
 import net.minestom.server.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Called when two {@link ItemEntity} are merging their ItemStack together to form a sole entity
+ * Called when two {@link ItemEntity} are merging their {@link ItemStack} together to form a sole entity.
  */
 public class EntityItemMergeEvent extends CancellableEvent {
 
-    private ItemEntity source;
-    private ItemEntity merged;
+    private final ItemEntity source;
+    private final ItemEntity merged;
 
     private ItemStack result;
 
-    public EntityItemMergeEvent(ItemEntity source, ItemEntity merged, ItemStack result) {
+    public EntityItemMergeEvent(@NotNull ItemEntity source, @NotNull ItemEntity merged, @NotNull ItemStack result) {
         this.source = source;
         this.merged = merged;
         this.result = result;
     }
 
     /**
-     * Get the entity who is receiving {@link #getMerged()} ItemStack
+     * Gets the {@link ItemEntity} who is receiving {@link #getMerged()}.
      * <p>
-     * This can be used to get the final ItemEntity position
+     * This can be used to get the final ItemEntity position.
      *
      * @return the source ItemEntity
      */
+    @NotNull
     public ItemEntity getSource() {
         return source;
     }
 
     /**
-     * Get the entity who will be merged
+     * Gets the entity who will be merged.
      * <p>
-     * This entity will be removed after the event
+     * This entity will be removed after the event.
      *
      * @return the merged ItemEntity
      */
+    @NotNull
     public ItemEntity getMerged() {
         return merged;
     }
 
     /**
-     * Get the final item stack on the ground
+     * Gets the final item stack on the ground.
      *
      * @return the item stack
      */
+    @NotNull
     public ItemStack getResult() {
         return result;
     }
 
     /**
-     * Change the item stack which will appear on the ground
+     * Changes the item stack which will appear on the ground.
      *
      * @param result the new item stack
      */
-    public void setResult(ItemStack result) {
+    public void setResult(@NotNull ItemStack result) {
         this.result = result;
     }
 }

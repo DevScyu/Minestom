@@ -7,11 +7,12 @@ import net.minestom.server.network.player.PlayerConnection;
 import net.minestom.server.ping.ResponseData;
 import net.minestom.server.ping.ResponseDataConsumer;
 import net.minestom.server.utils.binary.BinaryReader;
+import org.jetbrains.annotations.NotNull;
 
 public class StatusRequestPacket implements ClientPreplayPacket {
 
     @Override
-    public void process(PlayerConnection connection) {
+    public void process(@NotNull PlayerConnection connection) {
         ResponseDataConsumer consumer = MinecraftServer.getResponseDataConsumer();
         ResponseData responseData = new ResponseData();
 
@@ -33,7 +34,7 @@ public class StatusRequestPacket implements ClientPreplayPacket {
     }
 
     @Override
-    public void read(BinaryReader reader) {
+    public void read(@NotNull BinaryReader reader) {
         // Empty
     }
 }

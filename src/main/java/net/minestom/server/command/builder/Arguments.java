@@ -4,97 +4,146 @@ import net.minestom.server.chat.ChatColor;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.EntityType;
 import net.minestom.server.item.Enchantment;
+import net.minestom.server.item.ItemStack;
 import net.minestom.server.particle.Particle;
-import net.minestom.server.potion.PotionType;
+import net.minestom.server.potion.PotionEffect;
 import net.minestom.server.utils.math.FloatRange;
 import net.minestom.server.utils.math.IntRange;
 import net.minestom.server.utils.time.UpdateOption;
+import org.jetbrains.annotations.NotNull;
+import org.jglrxavpok.hephaistos.nbt.NBT;
+import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Class used to retrieve argument data
+ * Class used to retrieve argument data in a {@link CommandExecutor}.
+ * <p>
+ * All id are the one specified in the {@link net.minestom.server.command.builder.arguments.Argument} constructor.
+ * <p>
+ * All methods are @{@link NotNull} in the sense that you should not have to verify their validity since if the syntax
+ * is called, it means that all of its arguments are correct. Be aware that trying to retrieve an argument not present
+ * in the syntax will result in a {@link NullPointerException}.
  */
-public class Arguments {
+public final class Arguments {
 
-    private final Map<String, Object> args = new HashMap<>();
+    private Map<String, Object> args = new HashMap<>();
 
-    public boolean getBoolean(String id) {
+    public boolean getBoolean(@NotNull String id) {
         return (boolean) getObject(id);
     }
 
-    public long getLong(String id) {
+    public long getLong(@NotNull String id) {
         return (long) getObject(id);
     }
 
-    public int getInteger(String id) {
+    public int getInteger(@NotNull String id) {
         return (int) getObject(id);
     }
 
-    public double getDouble(String id) {
+    public double getDouble(@NotNull String id) {
         return (double) getObject(id);
     }
 
-    public float getFloat(String id) {
+    public float getFloat(@NotNull String id) {
         return (float) getObject(id);
     }
 
-    public String getString(String id) {
+    @NotNull
+    public String getString(@NotNull String id) {
         return (String) getObject(id);
     }
 
-    public String getWord(String id) {
+    @NotNull
+    public String getWord(@NotNull String id) {
         return getString(id);
     }
 
-    public String[] getStringArray(String id) {
+    @NotNull
+    public String[] getStringArray(@NotNull String id) {
         return (String[]) getObject(id);
     }
 
-    public ChatColor getColor(String id) {
+    @NotNull
+    public ChatColor getColor(@NotNull String id) {
         return (ChatColor) getObject(id);
     }
 
-    public UpdateOption getTime(String id) {
+    @NotNull
+    public UpdateOption getTime(@NotNull String id) {
         return (UpdateOption) getObject(id);
     }
 
-    public Enchantment getEnchantment(String id) {
+    @NotNull
+    public Enchantment getEnchantment(@NotNull String id) {
         return (Enchantment) getObject(id);
     }
 
-    public Particle getParticle(String id) {
+    @NotNull
+    public Particle getParticle(@NotNull String id) {
         return (Particle) getObject(id);
     }
 
-    public PotionType getPotion(String id) {
-        return (PotionType) getObject(id);
+    @NotNull
+    public PotionEffect getPotionEffect(@NotNull String id) {
+        return (PotionEffect) getObject(id);
     }
 
-    public EntityType getEntityType(String id) {
+    @NotNull
+    public EntityType getEntityType(@NotNull String id) {
         return (EntityType) getObject(id);
     }
 
-    public IntRange getIntRange(String id) {
+    @NotNull
+    public IntRange getIntRange(@NotNull String id) {
         return (IntRange) getObject(id);
     }
 
-    public FloatRange getFloatRange(String id) {
+    @NotNull
+    public FloatRange getFloatRange(@NotNull String id) {
         return (FloatRange) getObject(id);
     }
 
-    public List<Entity> getEntities(String id) {
+    @NotNull
+    public List<Entity> getEntities(@NotNull String id) {
         return (List<Entity>) getObject(id);
     }
 
-    public Object getObject(String id) {
-        return args.getOrDefault(id, null);
+    @NotNull
+    public ItemStack getItemStack(@NotNull String id) {
+        return (ItemStack) getObject(id);
     }
 
-    protected void setArg(String id, Object value) {
+    @NotNull
+    public NBTCompound getNbtCompound(@NotNull String id) {
+        return (NBTCompound) getObject(id);
+    }
+
+    @NotNull
+    public NBT getNBT(@NotNull String id) {
+        return (NBT) getObject(id);
+    }
+
+    @NotNull
+    public Object getObject(@NotNull String id) {
+        return args.computeIfAbsent(id, s -> {
+            throw new NullPointerException(
+                    "The argument with the id " + id + " has no value assigned, be sure to check your arguments id, your syntax, and that you do not change the argument id dynamically.");
+        });
+    }
+
+    protected void setArg(@NotNull String id, Object value) {
         this.args.put(id, value);
+    }
+
+    protected void copy(Arguments arguments) {
+        this.args = arguments.args;
+    }
+
+    protected void clear() {
+        this.args.clear();
     }
 
 }

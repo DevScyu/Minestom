@@ -3,12 +3,13 @@ package net.minestom.server.event.player;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.Event;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
 /**
  * Called before the player initialization, it can be used to kick the player before any connection
- * or to change his final username/uuid
+ * or to change his final username/uuid.
  */
 public class PlayerPreLoginEvent extends Event {
 
@@ -16,55 +17,58 @@ public class PlayerPreLoginEvent extends Event {
     private String username;
     private UUID playerUuid;
 
-    public PlayerPreLoginEvent(Player player, String username, UUID playerUuid) {
+    public PlayerPreLoginEvent(@NotNull Player player, @NotNull String username, @NotNull UUID playerUuid) {
         this.player = player;
         this.username = username;
         this.playerUuid = playerUuid;
     }
 
     /**
-     * Get the player who is trying to connect
+     * Gets the player who is trying to connect.
      *
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Get the player username
+     * Gets the player username.
      *
      * @return the player username
      */
+    @NotNull
     public String getUsername() {
         return username;
     }
 
     /**
-     * Change the player username
+     * Changes the player username.
      *
      * @param username the new player username
      */
-    public void setUsername(String username) {
+    public void setUsername(@NotNull String username) {
         Check.notNull(username, "The player username cannot be null");
         this.username = username;
     }
 
     /**
-     * Get the player uuid
+     * Gets the player uuid.
      *
      * @return the player uuid
      */
+    @NotNull
     public UUID getPlayerUuid() {
         return playerUuid;
     }
 
     /**
-     * Change the player uuid
+     * Changes the player uuid.
      *
      * @param playerUuid the new player uuid
      */
-    public void setPlayerUuid(UUID playerUuid) {
+    public void setPlayerUuid(@NotNull UUID playerUuid) {
         Check.notNull(playerUuid, "The player uuid cannot be null");
         this.playerUuid = playerUuid;
     }

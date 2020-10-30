@@ -4,16 +4,17 @@ import net.minestom.server.entity.Player;
 import net.minestom.server.event.CancellableEvent;
 import net.minestom.server.instance.block.BlockFace;
 import net.minestom.server.utils.BlockPosition;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Called when a player interacts with a block (right-click)
- * This is also called when a block is placed
+ * Called when a player interacts with a block (right-click).
+ * This is also called when a block is placed.
  */
 public class PlayerBlockInteractEvent extends CancellableEvent {
 
     private final Player player;
-    private BlockPosition blockPosition;
-    private Player.Hand hand;
+    private final BlockPosition blockPosition;
+    private final Player.Hand hand;
     private final BlockFace blockFace;
 
     /**
@@ -22,8 +23,8 @@ public class PlayerBlockInteractEvent extends CancellableEvent {
      */
     private boolean blocksItemUse;
 
-    public PlayerBlockInteractEvent(Player player,
-                                    BlockPosition blockPosition, Player.Hand hand, BlockFace blockFace) {
+    public PlayerBlockInteractEvent(@NotNull Player player,
+                                    @NotNull BlockPosition blockPosition, @NotNull Player.Hand hand, @NotNull BlockFace blockFace) {
         this.player = player;
         this.blockPosition = blockPosition;
         this.hand = hand;
@@ -31,16 +32,17 @@ public class PlayerBlockInteractEvent extends CancellableEvent {
     }
 
     /**
-     * Get the player who interacted with the block
+     * Gets the player who interacted with the block.
      *
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Get if the event should block the item use
+     * Gets if the event should block the item use.
      *
      * @return true if the item use is blocked, false otherwise
      */
@@ -53,28 +55,31 @@ public class PlayerBlockInteractEvent extends CancellableEvent {
     }
 
     /**
-     * Get the position of the interacted block
+     * Gets the position of the interacted block.
      *
      * @return the block position
      */
+    @NotNull
     public BlockPosition getBlockPosition() {
         return blockPosition;
     }
 
     /**
-     * Get the hand used for the interaction
+     * Gets the hand used for the interaction.
      *
      * @return the hand used
      */
+    @NotNull
     public Player.Hand getHand() {
         return hand;
     }
 
     /**
-     * Get the block face
+     * Gets the block face.
      *
      * @return the block face
      */
+    @NotNull
     public BlockFace getBlockFace() {
         return blockFace;
     }

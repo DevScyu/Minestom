@@ -36,17 +36,17 @@ public final class EntityManager {
 
             Check.notNull(spawningInstance, "You need to specify a spawning instance in the PlayerLoginEvent");
 
-            waitingPlayer.setInstance(spawningInstance);
+            spawningInstance.scheduleNextTick(waitingPlayer::setInstance);
         }
     }
 
     /**
-     * Call the player initialization callbacks and the event {@link PlayerPreLoginEvent}
-     * If the player hasn't been kicked, add him to the waiting list
+     * Call the player initialization callbacks and the event {@link PlayerPreLoginEvent}.
+     * If the {@link Player} hasn't been kicked, add him to the waiting list.
      * <p>
-     * Can be considered as a pre-init thing
+     * Can be considered as a pre-init thing.
      *
-     * @param player the player to add
+     * @param player the {@link Player} to add
      */
     public void addWaitingPlayer(Player player) {
 

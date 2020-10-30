@@ -10,7 +10,9 @@ import net.minestom.server.network.player.PlayerConnection;
 import java.util.Date;
 
 /**
- * Represent an advancement situated in an {@link AdvancementTab}
+ * Represents an advancement located in an {@link AdvancementTab}.
+ * <p>
+ * All fields are dynamic, changing one will update the advancement in the specific {@link AdvancementTab}.
  */
 public class Advancement {
 
@@ -55,7 +57,7 @@ public class Advancement {
     }
 
     /**
-     * Get if the advancement is achieved
+     * Gets if the advancement is achieved.
      *
      * @return true if the advancement is achieved
      */
@@ -64,7 +66,7 @@ public class Advancement {
     }
 
     /**
-     * Make the advancement achieved
+     * Makes the advancement achieved.
      *
      * @param achieved true to make it achieved
      * @return this advancement
@@ -76,7 +78,7 @@ public class Advancement {
     }
 
     /**
-     * Get the advancement tab linked to this advancement
+     * Gets the advancement tab linked to this advancement.
      *
      * @return the {@link AdvancementTab} linked to this advancement
      */
@@ -89,7 +91,7 @@ public class Advancement {
     }
 
     /**
-     * Get the title of the advancement
+     * Gets the title of the advancement.
      *
      * @return the advancement title
      */
@@ -98,7 +100,7 @@ public class Advancement {
     }
 
     /**
-     * Change the advancement title
+     * Changes the advancement title.
      *
      * @param title the new title
      */
@@ -108,7 +110,7 @@ public class Advancement {
     }
 
     /**
-     * Get the description of the advancement
+     * Gets the description of the advancement.
      *
      * @return the description title
      */
@@ -117,7 +119,7 @@ public class Advancement {
     }
 
     /**
-     * Change the description title
+     * Changes the description title.
      *
      * @param description the new description
      */
@@ -127,7 +129,7 @@ public class Advancement {
     }
 
     /**
-     * Get the advancement icon
+     * Gets the advancement icon.
      *
      * @return the advancement icon
      */
@@ -136,7 +138,7 @@ public class Advancement {
     }
 
     /**
-     * Change the advancement icon
+     * Changes the advancement icon.
      *
      * @param icon the new advancement icon
      */
@@ -146,7 +148,7 @@ public class Advancement {
     }
 
     /**
-     * Get if this advancement has a toast
+     * Gets if this advancement has a toast.
      *
      * @return true if the advancement has a toast
      */
@@ -155,7 +157,7 @@ public class Advancement {
     }
 
     /**
-     * Make this argument a toast
+     * Makes this argument a toast.
      *
      * @param toast true to make this advancement a toast
      * @return this advancement
@@ -176,7 +178,7 @@ public class Advancement {
     }
 
     /**
-     * Get the advancement frame type
+     * Gets the advancement frame type.
      *
      * @return this advancement frame type
      */
@@ -185,7 +187,7 @@ public class Advancement {
     }
 
     /**
-     * Change the advancement frame type
+     * Changes the advancement frame type.
      *
      * @param frameType the new frame type
      */
@@ -195,7 +197,7 @@ public class Advancement {
     }
 
     /**
-     * Get the X position of this advancement
+     * Gets the X position of this advancement.
      *
      * @return this advancement X
      */
@@ -204,7 +206,7 @@ public class Advancement {
     }
 
     /**
-     * Change this advancement X coordinate
+     * Changes this advancement X coordinate.
      *
      * @param x the new X coordinate
      */
@@ -214,7 +216,7 @@ public class Advancement {
     }
 
     /**
-     * Get the Y position of this advancement
+     * Gets the Y position of this advancement.
      *
      * @return this advancement Y
      */
@@ -223,7 +225,7 @@ public class Advancement {
     }
 
     /**
-     * Change this advancement Y coordinate
+     * Changes this advancement Y coordinate.
      *
      * @param y the new Y coordinate
      */
@@ -232,18 +234,43 @@ public class Advancement {
         update();
     }
 
+    /**
+     * Sets the background.
+     * <p>
+     * Only available for {@link AdvancementRoot}.
+     *
+     * @param background the new background
+     */
     protected void setBackground(String background) {
         this.background = background;
     }
 
+    /**
+     * Gets the identifier of this advancement, used to register the advancement, use it as a parent and to retrieve it later
+     * in the {@link AdvancementTab}.
+     *
+     * @return the advancement identifier
+     */
     protected String getIdentifier() {
         return identifier;
     }
 
+    /**
+     * Changes the advancement identifier.
+     * <p>
+     * WARNING: unsafe, only used by {@link AdvancementTab} to initialize the advancement.
+     *
+     * @param identifier the new advancement identifier
+     */
     protected void setIdentifier(String identifier) {
         this.identifier = identifier;
     }
 
+    /**
+     * Gets the advancement parent.
+     *
+     * @return the advancement parent, null for {@link AdvancementRoot}
+     */
     protected Advancement getParent() {
         return parent;
     }
@@ -280,7 +307,7 @@ public class Advancement {
     }
 
     /**
-     * Convert this advancement to an {@link AdvancementsPacket.AdvancementMapping}
+     * Converts this advancement to an {@link AdvancementsPacket.AdvancementMapping}.
      *
      * @return the mapping of this advancement
      */
@@ -311,7 +338,7 @@ public class Advancement {
     }
 
     /**
-     * Get the packet used to add this advancement to the already existing tab
+     * Gets the packet used to add this advancement to the already existing tab.
      *
      * @return the packet to add this advancement
      */
@@ -329,7 +356,7 @@ public class Advancement {
     }
 
     /**
-     * Send update to all tab viewers if one of the advancement value changes
+     * Sends update to all tab viewers if one of the advancement value changes.
      */
     protected void update() {
         updateCriteria();
@@ -342,6 +369,7 @@ public class Advancement {
             final ByteBuf removeBuffer = tab.removeBuffer;
             tab.getViewers().forEach(player -> {
                 final PlayerConnection playerConnection = player.getPlayerConnection();
+                // Receive order is important
                 playerConnection.sendPacket(removeBuffer, true);
                 playerConnection.sendPacket(createBuffer, true);
             });

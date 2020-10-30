@@ -20,19 +20,24 @@ import net.minestom.server.instance.InstanceManager;
 import net.minestom.server.instance.WorldBorder;
 import net.minestom.server.instance.block.CustomBlock;
 import net.minestom.server.network.packet.server.play.*;
+import net.minestom.server.thread.ThreadProvider;
 import net.minestom.server.utils.ArrayUtils;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.Vector;
 import net.minestom.server.utils.binary.BinaryWriter;
+import net.minestom.server.utils.callback.OptionalCallback;
 import net.minestom.server.utils.chunk.ChunkUtils;
 import net.minestom.server.utils.entity.EntityUtils;
 import net.minestom.server.utils.player.PlayerUtils;
 import net.minestom.server.utils.time.TimeUnit;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -114,13 +119,14 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     protected boolean noGravity;
     protected Pose pose = Pose.STANDING;
 
-    protected final List<Consumer<Entity>> nextTick = Collections.synchronizedList(new ArrayList<>());
+    // list of scheduled tasks to be executed during the next entity tick
+    protected final ConcurrentLinkedQueue<Consumer<Entity>> nextTick = new ConcurrentLinkedQueue<>();
 
     // Tick related
     private long ticks;
     private final EntityTickEvent tickEvent = new EntityTickEvent(this);
 
-    public Entity(EntityType entityType, Position spawnPosition) {
+    public Entity(@NotNull EntityType entityType, @NotNull Position spawnPosition) {
         this.id = generateId();
         this.entityType = entityType;
         this.uuid = UUID.randomUUID();
@@ -134,11 +140,17 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         setVelocityUpdatePeriod(5);
     }
 
-    public void scheduleNextTick(Consumer<Entity> callback) {
-        nextTick.add(callback);
+    /**
+     * Schedules a task to be run during the next entity tick.
+     * It ensures that the task will be executed in the same thread as the entity (depending of the {@link ThreadProvider}).
+     *
+     * @param callback the task to execute during the next entity tick
+     */
+    public void scheduleNextTick(@NotNull Consumer<Entity> callback) {
+        this.nextTick.add(callback);
     }
 
-    public Entity(EntityType entityType) {
+    public Entity(@NotNull EntityType entityType) {
         this(entityType, new Position());
     }
 
@@ -146,6 +158,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
      * @param id the entity unique id ({@link #getEntityId()})
      * @return the entity having the specified id, null if not found
      */
+    @Nullable
     public static Entity getEntity(int id) {
         return entityById.getOrDefault(id, null);
     }
@@ -155,14 +168,14 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Called each tick
+     * Called each tick.
      *
      * @param time the time of update in milliseconds
      */
     public abstract void update(long time);
 
     /**
-     * Called when a new instance is set
+     * Called when a new instance is set.
      */
     public abstract void spawn();
 
@@ -171,7 +184,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Checks if now is a good time to send a velocity update packet
+     * Checks if now is a good time to send a velocity update packet.
      *
      * @param time the current time in milliseconds
      * @return true if the velocity update packet should be send
@@ -181,7 +194,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Gets the period, in ms, between two velocity update packets
+     * Gets the period, in ms, between two velocity update packets.
      *
      * @return period, in ms, between two velocity update packets
      */
@@ -190,7 +203,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Sets the period, in ms, between two velocity update packets
+     * Sets the period, in ms, between two velocity update packets.
      *
      * @param velocityUpdatePeriod period, in ms, between two velocity update packets
      */
@@ -199,13 +212,13 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Teleport the entity only if the chunk at {@code position} is loaded or if
-     * {@link Instance#hasEnabledAutoChunkLoad()} returns true
+     * Teleports the entity only if the chunk at {@code position} is loaded or if
+     * {@link Instance#hasEnabledAutoChunkLoad()} returns true.
      *
      * @param position the teleport position
-     * @param callback the callback executed, even if auto chunk is not enabled
+     * @param callback the optional callback executed, even if auto chunk is not enabled
      */
-    public void teleport(Position position, Runnable callback) {
+    public void teleport(@NotNull Position position, @Nullable Runnable callback) {
         Check.notNull(position, "Teleport position cannot be null");
         Check.stateCondition(instance == null, "You need to use Entity#setInstance before teleporting an entity!");
 
@@ -217,8 +230,8 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
                 refreshView(position.getYaw(), position.getPitch());
             }
             sendSynchronization();
-            if (callback != null)
-                callback.run();
+
+            OptionalCallback.execute(callback);
         };
 
         if (instance.hasEnabledAutoChunkLoad()) {
@@ -228,12 +241,12 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         }
     }
 
-    public void teleport(Position position) {
+    public void teleport(@NotNull Position position) {
         teleport(position, null);
     }
 
     /**
-     * Change the view of the entity
+     * Changes the view of the entity.
      *
      * @param yaw   the new yaw
      * @param pitch the new pitch
@@ -256,23 +269,23 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the view of the entity
-     * Only the yaw and pitch is used
+     * Changes the view of the entity.
+     * Only the yaw and pitch are used.
      *
      * @param position the new view
      */
-    public void setView(Position position) {
+    public void setView(@NotNull Position position) {
         setView(position.getYaw(), position.getPitch());
     }
 
     /**
      * When set to true, the entity will automatically get new viewers when they come too close
      * This can be use to complete control over which player can see it, without having to deal with
-     * raw packets
+     * raw packets.
      * <p>
-     * True by default for all entities
+     * True by default for all entities.
      * When set to false, it is important to mention that the players will not be removed automatically from its viewers
-     * list, you would have to do that manually when being too far
+     * list, you would have to do that manually when being too far.
      *
      * @return true if the entity is automatically viewable for close players, false otherwise
      */
@@ -281,14 +294,17 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
+     * Makes the entity auto viewable or only manually.
+     *
      * @param autoViewable should the entity be automatically viewable for close players
+     * @see #isAutoViewable()
      */
     public void setAutoViewable(boolean autoViewable) {
         this.autoViewable = autoViewable;
     }
 
     @Override
-    public boolean addViewer(Player player) {
+    public boolean addViewer(@NotNull Player player) {
         Check.notNull(player, "Viewer cannot be null");
         boolean result = this.viewers.add(player);
         if (!result)
@@ -298,7 +314,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     @Override
-    public boolean removeViewer(Player player) {
+    public boolean removeViewer(@NotNull Player player) {
         Check.notNull(player, "Viewer cannot be null");
         if (!viewers.remove(player))
             return false;
@@ -310,6 +326,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         return true;
     }
 
+    @NotNull
     @Override
     public Set<Player> getViewers() {
         return Collections.unmodifiableSet(viewers);
@@ -321,12 +338,12 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     @Override
-    public void setData(Data data) {
+    public void setData(@Nullable Data data) {
         this.data = data;
     }
 
     /**
-     * Update the entity, called every tick
+     * Updates the entity, called every tick.
      *
      * @param time the update time in milliseconds
      */
@@ -353,12 +370,14 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
             return;
         }
 
-        synchronized (nextTick) {
-            for (final Consumer<Entity> e : nextTick) {
-                e.accept(this);
+        // scheduled tasks
+        if (!nextTick.isEmpty()) {
+            Consumer<Entity> callback;
+            while ((callback = nextTick.poll()) != null) {
+                callback.accept(this);
             }
-            nextTick.clear();
         }
+
         // Synchronization with updated fields in #getPosition()
         {
             // X/Y/Z axis
@@ -514,14 +533,14 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Equivalent to <code>sendPacketsToViewers(getVelocityPacket());</code>
+     * Equivalent to <code>sendPacketsToViewers(getVelocityPacket());</code>.
      */
     public void sendVelocityPacket() {
         sendPacketsToViewers(getVelocityPacket());
     }
 
     /**
-     * Get the number of ticks this entity has been active for
+     * Gets the number of ticks this entity has been active for.
      *
      * @return the number of ticks this entity has been active for
      */
@@ -539,13 +558,14 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         }
     }
 
+    @NotNull
     @Override
     public Map<Class<? extends Event>, Collection<EventCallback>> getEventCallbacksMap() {
         return eventCallbacks;
     }
 
     @Override
-    public <E extends Event> void callEvent(Class<E> eventClass, E event) {
+    public <E extends Event> void callEvent(@NotNull Class<E> eventClass, @NotNull E event) {
         EventHandler.super.callEvent(eventClass, event);
 
         // Call the same event for the current entity instance
@@ -555,8 +575,9 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Each entity has an unique id which will change after a restart
-     * All entities can be retrieved by calling {@link Entity#getEntity(int)}
+     * Each entity has an unique id which will change after a restart.
+     * <p>
+     * All entities can be retrieved by calling {@link Entity#getEntity(int)}.
      *
      * @return the unique entity id
      */
@@ -565,34 +586,35 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Return the entity type id, can convert using {@link EntityType#fromId(int)}
+     * Returns the entity type.
      *
-     * @return the entity type id
+     * @return the entity type
      */
     public EntityType getEntityType() {
         return entityType;
     }
 
     /**
-     * Get the entity UUID
+     * Gets the entity {@link UUID}.
      *
-     * @return the entity UUID
+     * @return the entity unique id
      */
+    @NotNull
     public UUID getUuid() {
         return uuid;
     }
 
     /**
-     * Change the internal entity UUID, mostly unsafe
+     * Changes the internal entity UUID, mostly unsafe.
      *
      * @param uuid the new entity uuid
      */
-    protected void setUuid(UUID uuid) {
+    protected void setUuid(@NotNull UUID uuid) {
         this.uuid = uuid;
     }
 
     /**
-     * Return false just after instantiation, set to true after calling {@link #setInstance(Instance)}
+     * Returns false just after instantiation, set to true after calling {@link #setInstance(Instance)}.
      *
      * @return true if the entity has been linked to an instance, false otherwise
      */
@@ -601,18 +623,19 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Is used to check collision with coordinates or other blocks/entities
+     * Is used to check collision with coordinates or other blocks/entities.
      *
      * @return the entity bounding box
      */
+    @NotNull
     public BoundingBox getBoundingBox() {
         return boundingBox;
     }
 
     /**
-     * Change the internal entity bounding box
+     * Changes the internal entity bounding box.
      * <p>
-     * WARNING: this does not change the entity hit-box which is client-side
+     * WARNING: this does not change the entity hit-box which is client-side.
      *
      * @param x the bounding box X size
      * @param y the bounding box Y size
@@ -623,16 +646,17 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Convenience method to get the entity current chunk
+     * Convenient method to get the entity current chunk.
      *
-     * @return the entity chunk
+     * @return the entity chunk, can be null even if unlikely
      */
+    @Nullable
     public Chunk getChunk() {
         return instance.getChunkAt(lastX, lastZ);
     }
 
     /**
-     * Get the entity current instance
+     * Gets the entity current instance.
      *
      * @return the entity instance
      */
@@ -641,13 +665,13 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the entity instance
+     * Changes the entity instance.
      *
      * @param instance the new instance of the entity
      * @throws NullPointerException  if {@code instance} is null
      * @throws IllegalStateException if {@code instance} has not been registered in {@link InstanceManager}
      */
-    public void setInstance(Instance instance) {
+    public void setInstance(@NotNull Instance instance) {
         Check.notNull(instance, "instance cannot be null!");
         Check.stateCondition(!instance.isRegistered(),
                 "Instances need to be registered, please use InstanceManager#registerInstance or InstanceManager#registerSharedInstance");
@@ -665,22 +689,23 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the entity current velocity
+     * Gets the entity current velocity.
      *
      * @return the entity current velocity
      */
+    @NotNull
     public Vector getVelocity() {
         return velocity;
     }
 
     /**
-     * Change the entity velocity and calls {@link EntityVelocityEvent}.
+     * Changes the entity velocity and calls {@link EntityVelocityEvent}.
      * <p>
-     * The final velocity can be cancelled or modified by the event
+     * The final velocity can be cancelled or modified by the event.
      *
      * @param velocity the new entity velocity
      */
-    public void setVelocity(Vector velocity) {
+    public void setVelocity(@NotNull Vector velocity) {
         EntityVelocityEvent entityVelocityEvent = new EntityVelocityEvent(this, velocity);
         callCancellableEvent(EntityVelocityEvent.class, entityVelocityEvent, () -> {
             this.velocity.copy(entityVelocityEvent.getVelocity());
@@ -689,7 +714,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity currently has a velocity applied
+     * Gets if the entity currently has a velocity applied.
      *
      * @return true if velocity is not set to 0
      */
@@ -700,7 +725,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the gravity of the entity
+     * Changes the gravity of the entity.
      *
      * @param gravityDragPerTick the gravity drag per tick
      */
@@ -709,33 +734,34 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the distance between two entities
+     * Gets the distance between two entities.
      *
      * @param entity the entity to get the distance from
      * @return the distance between this and {@code entity}
      */
-    public float getDistance(Entity entity) {
+    public float getDistance(@NotNull Entity entity) {
         Check.notNull(entity, "Entity cannot be null");
         return getPosition().getDistance(entity.getPosition());
     }
 
     /**
-     * Get the entity vehicle or null
+     * Gets the entity vehicle or null.
      *
      * @return the entity vehicle, or null if there is not any
      */
+    @Nullable
     public Entity getVehicle() {
         return vehicle;
     }
 
     /**
-     * Add a new passenger to this entity
+     * Adds a new passenger to this entity.
      *
      * @param entity the new passenger
      * @throws NullPointerException  if {@code entity} is null
      * @throws IllegalStateException if {@link #getInstance()} returns null
      */
-    public void addPassenger(Entity entity) {
+    public void addPassenger(@NotNull Entity entity) {
         Check.notNull(entity, "Passenger cannot be null");
         Check.stateCondition(instance == null, "You need to set an instance using Entity#setInstance");
 
@@ -750,13 +776,13 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Remove a passenger to this entity
+     * Removes a passenger to this entity.
      *
      * @param entity the passenger to remove
      * @throws NullPointerException  if {@code entity} is null
      * @throws IllegalStateException if {@link #getInstance()} returns null
      */
-    public void removePassenger(Entity entity) {
+    public void removePassenger(@NotNull Entity entity) {
         Check.notNull(entity, "Passenger cannot be null");
         Check.stateCondition(instance == null, "You need to set an instance using Entity#setInstance");
 
@@ -767,7 +793,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity has any passenger
+     * Gets if the entity has any passenger.
      *
      * @return true if the entity has any passenger, false otherwise
      */
@@ -776,14 +802,16 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the entity passengers
+     * Gets the entity passengers.
      *
      * @return an unmodifiable list containing all the entity passengers
      */
+    @NotNull
     public Set<Entity> getPassengers() {
         return Collections.unmodifiableSet(passengers);
     }
 
+    @NotNull
     protected SetPassengersPacket getPassengersPacket() {
         SetPassengersPacket passengersPacket = new SetPassengersPacket();
         passengersPacket.vehicleEntityId = getEntityId();
@@ -799,7 +827,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Entity statuses can be find <a href="https://wiki.vg/Entity_statuses">here</a>
+     * Entity statuses can be found <a href="https://wiki.vg/Entity_statuses">here</a>.
      *
      * @param status the status to trigger
      */
@@ -811,7 +839,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity is on fire
+     * Gets if the entity is on fire.
      *
      * @return true if the entity is in fire, false otherwise
      */
@@ -820,10 +848,10 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Set the entity in fire visually
+     * Sets the entity in fire visually.
      * <p>
      * WARNING: if you want to apply damage or specify a duration,
-     * see {@link LivingEntity#setFireForDuration(int, TimeUnit)}
+     * see {@link LivingEntity#setFireForDuration(int, TimeUnit)}.
      *
      * @param fire should the entity be set in fire
      */
@@ -833,7 +861,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity is invisible or not
+     * Gets if the entity is invisible or not.
      *
      * @return true if the entity is invisible, false otherwise
      */
@@ -842,8 +870,8 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the internal invisible value and send a {@link EntityMetaDataPacket}
-     * to make visible or invisible the entity to its viewers
+     * Changes the internal invisible value and send a {@link EntityMetaDataPacket}
+     * to make visible or invisible the entity to its viewers.
      *
      * @param invisible true to set the entity invisible, false otherwise
      */
@@ -853,7 +881,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity is glowing or not
+     * Gets if the entity is glowing or not.
      *
      * @return true if the entity is glowing, false otherwise
      */
@@ -862,7 +890,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Set or remove the entity glowing effect
+     * Sets or remove the entity glowing effect.
      *
      * @param glowing true to make the entity glows, false otherwise
      */
@@ -872,7 +900,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the entity custom name
+     * Gets the entity custom name.
      *
      * @return the custom name of the entity, null if there is not
      */
@@ -881,7 +909,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the entity custom name
+     * Changes the entity custom name.
      *
      * @param customName the custom name of the entity, null to remove it
      */
@@ -891,7 +919,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the custom name visible metadata field
+     * Gets the custom name visible metadata field.
      *
      * @return true if the custom name is visible, false otherwise
      */
@@ -900,8 +928,8 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the internal custom name visible field and send a {@link EntityMetaDataPacket}
-     * to update the entity state to its viewers
+     * Changes the internal custom name visible field and send a {@link EntityMetaDataPacket}
+     * to update the entity state to its viewers.
      *
      * @param customNameVisible true to make the custom name visible, false otherwise
      */
@@ -920,7 +948,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the noGravity metadata field and change the gravity behaviour accordingly
+     * Changes the noGravity metadata field and change the gravity behaviour accordingly.
      *
      * @param noGravity should the entity ignore gravity
      */
@@ -930,7 +958,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the noGravity metadata field
+     * Gets the noGravity metadata field.
      *
      * @return true if the entity ignore gravity, false otherwise
      */
@@ -944,7 +972,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
      * - update the viewable chunks (load and unload)
      * - add/remove players from the viewers list if {@link #isAutoViewable()} is enabled
      * <p>
-     * WARNING: unsafe, should only be used internally in Minestom
+     * WARNING: unsafe, should only be used internally in Minestom. Use {@link #teleport(Position)} instead.
      *
      * @param x new position X
      * @param y new position Y
@@ -985,20 +1013,30 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
      * @param position the new position
      * @see #refreshPosition(float, float, float)
      */
-    public void refreshPosition(Position position) {
+    public void refreshPosition(@NotNull Position position) {
         refreshPosition(position.getX(), position.getY(), position.getZ());
     }
 
-    private void updateView(Chunk lastChunk, Chunk newChunk) {
+    /**
+     * Manages viewable entities automatically if {@link #isAutoViewable()} is enabled.
+     * <p>
+     * Called by {@link #refreshPosition(float, float, float)} when the new position is in a different {@link Chunk}.
+     *
+     * @param lastChunk the previous {@link Chunk} of this entity
+     * @param newChunk  the new {@link Chunk} of this entity
+     */
+    private void updateView(@NotNull Chunk lastChunk, @NotNull Chunk newChunk) {
         final boolean isPlayer = this instanceof Player;
 
         if (isPlayer)
             ((Player) this).onChunkChange(newChunk); // Refresh loaded chunk
 
         // Refresh entity viewable list
-        final long[] lastVisibleChunksEntity = ChunkUtils.getChunksInRange(new Position(16 * lastChunk.getChunkX(), 0, 16 * lastChunk.getChunkZ()), MinecraftServer.ENTITY_VIEW_DISTANCE);
-        final long[] updatedVisibleChunksEntity = ChunkUtils.getChunksInRange(new Position(16 * newChunk.getChunkX(), 0, 16 * newChunk.getChunkZ()), MinecraftServer.ENTITY_VIEW_DISTANCE);
+        final int entityViewDistance = MinecraftServer.getEntityViewDistance();
+        final long[] lastVisibleChunksEntity = ChunkUtils.getChunksInRange(new Position(16 * lastChunk.getChunkX(), 0, 16 * lastChunk.getChunkZ()), entityViewDistance);
+        final long[] updatedVisibleChunksEntity = ChunkUtils.getChunksInRange(new Position(16 * newChunk.getChunkX(), 0, 16 * newChunk.getChunkZ()), entityViewDistance);
 
+        // Remove from previous chunks
         final int[] oldChunksEntity = ArrayUtils.getDifferencesBetweenArray(lastVisibleChunksEntity, updatedVisibleChunksEntity);
         for (int index : oldChunksEntity) {
             final long chunkIndex = lastVisibleChunksEntity[index];
@@ -1021,6 +1059,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
             });
         }
 
+        // Add to new chunks
         final int[] newChunksEntity = ArrayUtils.getDifferencesBetweenArray(updatedVisibleChunksEntity, lastVisibleChunksEntity);
         for (int index : newChunksEntity) {
             final long chunkIndex = updatedVisibleChunksEntity[index];
@@ -1045,9 +1084,9 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Update the entity view internally
+     * Updates the entity view internally.
      * <p>
-     * Warning: you probably want to use {@link #setView(float, float)}
+     * Warning: you probably want to use {@link #setView(float, float)}.
      *
      * @param yaw   the yaw
      * @param pitch the pitch
@@ -1061,20 +1100,34 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         this.cachePitch = pitch;
     }
 
-    public void refreshSneaking(boolean sneaking) {
+    /**
+     * Makes the entity sneak.
+     * <p>
+     * WARNING: this will not work for the client itself.
+     *
+     * @param sneaking true to make the entity sneak
+     */
+    public void setSneaking(boolean sneaking) {
         this.crouched = sneaking;
         this.pose = sneaking ? Pose.SNEAKING : Pose.STANDING;
         sendMetadataIndex(0);
         sendMetadataIndex(6);
     }
 
-    public void refreshSprinting(boolean sprinting) {
+    /**
+     * Makes the entity sprint.
+     * <p>
+     * WARNING: this will not work on the client itself.
+     *
+     * @param sprinting true to make the entity sprint
+     */
+    public void setSprinting(boolean sprinting) {
         this.sprinting = sprinting;
         sendMetadataIndex(0);
     }
 
     /**
-     * Get the entity position
+     * Gets the entity position.
      *
      * @return the current position of the entity
      */
@@ -1083,7 +1136,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get the entity eye height
+     * Gets the entity eye height.
      *
      * @return the entity eye height
      */
@@ -1092,7 +1145,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Change the entity eye height
+     * Changes the entity eye height.
      *
      * @param eyeHeight the entity eye height
      */
@@ -1101,12 +1154,12 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if this entity is in the same chunk as the specified position
+     * Gets if this entity is in the same chunk as the specified position.
      *
      * @param position the checked position chunk
      * @return true if the entity is in the same chunk as {@code position}
      */
-    public boolean sameChunk(Position position) {
+    public boolean sameChunk(@NotNull Position position) {
         Check.notNull(position, "Position cannot be null");
         final Position pos = getPosition();
         final int chunkX1 = ChunkUtils.getChunkCoordinate((int) Math.floor(pos.getX()));
@@ -1119,18 +1172,19 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity is in the same chunk as another
+     * Gets if the entity is in the same chunk as another.
      *
      * @param entity the entity to check
      * @return true if both entities are in the same chunk, false otherwise
      */
-    public boolean sameChunk(Entity entity) {
+    public boolean sameChunk(@NotNull Entity entity) {
         return sameChunk(entity.getPosition());
     }
 
     /**
-     * Remove the entity from the server immediately
-     * WARNING: this do not trigger the {@link EntityDeathEvent} event
+     * Removes the entity from the server immediately.
+     * <p>
+     * WARNING: this do not trigger the {@link EntityDeathEvent} event.
      */
     public void remove() {
         this.removed = true;
@@ -1141,7 +1195,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if this entity has been removed
+     * Gets if this entity has been removed.
      *
      * @return true if this entity is removed
      */
@@ -1150,12 +1204,12 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Trigger {@link #remove()} after the specified time
+     * Triggers {@link #remove()} after the specified time.
      *
      * @param delay    the time before removing the entity
      * @param timeUnit the unit of the delay
      */
-    public void scheduleRemove(long delay, TimeUnit timeUnit) {
+    public void scheduleRemove(long delay, @NotNull TimeUnit timeUnit) {
         delay = timeUnit.toMilliseconds(delay);
 
         if (delay == 0) { // Cancel the scheduled remove
@@ -1166,14 +1220,15 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Get if the entity removal is scheduled
+     * Gets if the entity removal has been scheduled with {@link #scheduleRemove(long, TimeUnit)}.
      *
-     * @return true if {@link #scheduleRemove(long, TimeUnit)} has been called, false otherwise
+     * @return true if the entity removal has been scheduled
      */
     public boolean isRemoveScheduled() {
         return scheduledRemoveTime != 0;
     }
 
+    @NotNull
     protected EntityVelocityPacket getVelocityPacket() {
         final float strength = 8000f / MinecraftServer.TICK_PER_SECOND;
         EntityVelocityPacket velocityPacket = new EntityVelocityPacket();
@@ -1185,10 +1240,11 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Used to sync entities together, and sent when adding viewers
+     * Gets an {@link EntityMetaDataPacket} sent when adding viewers. Used for synchronization.
      *
      * @return The {@link EntityMetaDataPacket} related to this entity
      */
+    @NotNull
     public EntityMetaDataPacket getMetadataPacket() {
         EntityMetaDataPacket metaDataPacket = new EntityMetaDataPacket();
         metaDataPacket.entityId = getEntityId();
@@ -1201,6 +1257,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
      *
      * @return The consumer used to write {@link EntityMetaDataPacket} in {@link #getMetadataPacket()}
      */
+    @NotNull
     public Consumer<BinaryWriter> getMetadataConsumer() {
         return packet -> {
             fillMetadataIndex(packet, 0);
@@ -1214,8 +1271,8 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Send a {@link EntityMetaDataPacket} containing only the specified index
-     * The index is wrote using {@link #fillMetadataIndex(BinaryWriter, int)}
+     * Sends a {@link EntityMetaDataPacket} containing only the specified index
+     * The index is wrote using {@link #fillMetadataIndex(BinaryWriter, int)}.
      *
      * @param index the metadata index
      */
@@ -1228,14 +1285,14 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Used to fill/write a specific metadata index
-     * The proper use to add a new metadata index is to override this and add your case
-     * Then you can also override {@link #getMetadataConsumer()} and fill your newly added index
+     * Used to fill/write a specific metadata index.
+     * The proper use to add a new metadata index is to override this and add your case.
+     * Then you can also override {@link #getMetadataConsumer()} and fill your newly added index.
      *
      * @param packet the packet writer
      * @param index  the index to fill/write
      */
-    protected void fillMetadataIndex(BinaryWriter packet, int index) {
+    protected void fillMetadataIndex(@NotNull BinaryWriter packet, int index) {
         switch (index) {
             case 0:
                 fillStateMetadata(packet);
@@ -1261,7 +1318,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         }
     }
 
-    private void fillStateMetadata(BinaryWriter packet) {
+    private void fillStateMetadata(@NotNull BinaryWriter packet) {
         packet.writeByte((byte) 0);
         packet.writeByte(METADATA_BYTE);
         byte index0 = 0;
@@ -1284,13 +1341,13 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         packet.writeByte(index0);
     }
 
-    private void fillAirTickMetaData(BinaryWriter packet) {
+    private void fillAirTickMetaData(@NotNull BinaryWriter packet) {
         packet.writeByte((byte) 1);
         packet.writeByte(METADATA_VARINT);
         packet.writeVarInt(air);
     }
 
-    private void fillCustomNameMetaData(BinaryWriter packet) {
+    private void fillCustomNameMetaData(@NotNull BinaryWriter packet) {
         boolean hasCustomName = customName != null;
 
         packet.writeByte((byte) 2);
@@ -1301,25 +1358,25 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
         }
     }
 
-    private void fillCustomNameVisibleMetaData(BinaryWriter packet) {
+    private void fillCustomNameVisibleMetaData(@NotNull BinaryWriter packet) {
         packet.writeByte((byte) 3);
         packet.writeByte(METADATA_BOOLEAN);
         packet.writeBoolean(customNameVisible);
     }
 
-    private void fillSilentMetaData(BinaryWriter packet) {
+    private void fillSilentMetaData(@NotNull BinaryWriter packet) {
         packet.writeByte((byte) 4);
         packet.writeByte(METADATA_BOOLEAN);
         packet.writeBoolean(silent);
     }
 
-    private void fillNoGravityMetaData(BinaryWriter packet) {
+    private void fillNoGravityMetaData(@NotNull BinaryWriter packet) {
         packet.writeByte((byte) 5);
         packet.writeByte(METADATA_BOOLEAN);
         packet.writeBoolean(noGravity);
     }
 
-    private void fillPoseMetaData(BinaryWriter packet) {
+    private void fillPoseMetaData(@NotNull BinaryWriter packet) {
         packet.writeByte((byte) 6);
         packet.writeByte(METADATA_POSE);
         packet.writeVarInt(pose.ordinal());
@@ -1334,7 +1391,7 @@ public abstract class Entity implements Viewable, EventHandler, DataContainer {
     }
 
     /**
-     * Ask for a synchronization (position) to happen during next entity tick
+     * Asks for a synchronization (position) to happen during next entity tick.
      */
     public void askSynchronization() {
         this.lastSynchronizationTime = 0;

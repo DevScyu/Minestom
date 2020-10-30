@@ -4,28 +4,42 @@ import com.extollit.gaming.ai.path.model.ColumnarOcclusionFieldList;
 import it.unimi.dsi.fastutil.ints.*;
 import it.unimi.dsi.fastutil.objects.Object2ShortMap;
 import it.unimi.dsi.fastutil.objects.Object2ShortOpenHashMap;
+import net.minestom.server.MinecraftServer;
 import net.minestom.server.data.Data;
 import net.minestom.server.data.SerializableData;
 import net.minestom.server.data.SerializableDataImpl;
 import net.minestom.server.entity.pathfinding.PFBlockDescription;
-import net.minestom.server.instance.batch.ChunkBatch;
 import net.minestom.server.instance.block.CustomBlock;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.MathUtils;
 import net.minestom.server.utils.binary.BinaryReader;
 import net.minestom.server.utils.binary.BinaryWriter;
+import net.minestom.server.utils.block.CustomBlockUtils;
+import net.minestom.server.utils.callback.OptionalCallback;
 import net.minestom.server.utils.chunk.ChunkCallback;
 import net.minestom.server.utils.chunk.ChunkUtils;
 import net.minestom.server.utils.time.CooldownUtils;
 import net.minestom.server.utils.time.UpdateOption;
+import net.minestom.server.utils.validate.Check;
 import net.minestom.server.world.biomes.Biome;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
+/**
+ * Represents a {@link Chunk} which store each individual block in memory.
+ */
 public class DynamicChunk extends Chunk {
+
+    /**
+     * Represents the version which will be present in the serialized output.
+     * Used to define which deserializer to use.
+     */
+    private static final int DATA_FORMAT_VERSION = 1;
 
     // blocks id based on coordinate, see Chunk#getBlockIndex
     // WARNING: those arrays are NOT thread-safe
@@ -34,19 +48,19 @@ public class DynamicChunk extends Chunk {
     protected final short[] customBlocksId = new short[CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z];
 
     // Used to get all blocks with data (no null)
-    // Key is still chunk coord
-    protected Int2ObjectMap<Data> blocksData = new Int2ObjectOpenHashMap<>(16 * 16); // Start with the size of a single row
+    // Key is still chunk coordinates (see #getBlockIndex)
+    protected final Int2ObjectMap<Data> blocksData = new Int2ObjectOpenHashMap<>();
 
     // Contains CustomBlocks' block index which are updatable
-    protected IntSet updatableBlocks = new IntOpenHashSet();
+    protected final IntSet updatableBlocks = new IntOpenHashSet();
     // (block index)/(last update in ms)
-    protected Int2LongMap updatableBlocksLastUpdate = new Int2LongOpenHashMap();
+    protected final Int2LongMap updatableBlocksLastUpdate = new Int2LongOpenHashMap();
 
     // Block entities
-    protected Set<Integer> blockEntities = new CopyOnWriteArraySet<>();
+    protected final Set<Integer> blockEntities = new CopyOnWriteArraySet<>();
 
-    public DynamicChunk(Instance instance, Biome[] biomes, int chunkX, int chunkZ) {
-        super(instance, biomes, chunkX, chunkZ);
+    public DynamicChunk(@NotNull Instance instance, @Nullable Biome[] biomes, int chunkX, int chunkZ) {
+        super(instance, biomes, chunkX, chunkZ, true);
     }
 
     @Override
@@ -111,7 +125,7 @@ public class DynamicChunk extends Chunk {
     }
 
     @Override
-    public void tick(long time, Instance instance) {
+    public void tick(long time, @NotNull Instance instance) {
         if (updatableBlocks.isEmpty())
             return;
 
@@ -123,16 +137,18 @@ public class DynamicChunk extends Chunk {
 
             // Update cooldown
             final UpdateOption updateOption = customBlock.getUpdateOption();
-            final long lastUpdate = updatableBlocksLastUpdate.get(index);
-            final boolean hasCooldown = CooldownUtils.hasCooldown(time, lastUpdate, updateOption);
-            if (hasCooldown)
-                continue;
+            if (updateOption != null) {
+                final long lastUpdate = updatableBlocksLastUpdate.get(index);
+                final boolean hasCooldown = CooldownUtils.hasCooldown(time, lastUpdate, updateOption);
+                if (hasCooldown)
+                    continue;
 
-            this.updatableBlocksLastUpdate.put(index, time); // Refresh last update time
+                this.updatableBlocksLastUpdate.put(index, time); // Refresh last update time
 
-            final BlockPosition blockPosition = ChunkUtils.getBlockPosition(index, chunkX, chunkZ);
-            final Data data = getBlockData(index);
-            customBlock.update(instance, blockPosition, data);
+                final BlockPosition blockPosition = ChunkUtils.getBlockPosition(index, chunkX, chunkZ);
+                final Data data = getBlockData(index);
+                customBlock.update(instance, blockPosition, data);
+            }
         }
     }
 
@@ -190,6 +206,7 @@ public class DynamicChunk extends Chunk {
         }
     }
 
+    @NotNull
     @Override
     public Set<Integer> getBlockEntities() {
         return blockEntities;
@@ -208,139 +225,174 @@ public class DynamicChunk extends Chunk {
         // Used for blocks data (unused if empty at the end)
         Object2ShortMap<String> typeToIndexMap = new Object2ShortOpenHashMap<>();
 
-        BinaryWriter binaryWriter = new BinaryWriter();
+        // Order of buffers in the final serialized array
+        BinaryWriter versionWriter = new BinaryWriter();
+        BinaryWriter dataIndexWriter = new BinaryWriter();
+        BinaryWriter chunkWriter = new BinaryWriter();
 
-        // Chunk data
-        final boolean hasChunkData = data instanceof SerializableData && !data.isEmpty();
-        binaryWriter.writeBoolean(hasChunkData);
-        if (hasChunkData) {
-            // Get the un-indexed data
-            final byte[] serializedData = ((SerializableData) data).getSerializedData(typeToIndexMap, false);
-            binaryWriter.writeBytes(serializedData);
+        // VERSION WRITER
+        {
+            versionWriter.writeInt(DATA_FORMAT_VERSION);
+            versionWriter.writeInt(MinecraftServer.PROTOCOL_VERSION);
         }
 
-        // Write the biomes id
-        for (int i = 0; i < BIOME_COUNT; i++) {
-            final byte id = (byte) biomes[i].getId();
-            binaryWriter.writeByte(id);
+        // CHUNK DATA WRITER
+        {
+            // Chunk data
+            final boolean hasChunkData = data instanceof SerializableData && !data.isEmpty();
+            chunkWriter.writeBoolean(hasChunkData);
+            if (hasChunkData) {
+                // Get the un-indexed data
+                final byte[] serializedData = ((SerializableData) data).getSerializedData(typeToIndexMap, false);
+                chunkWriter.writeBytes(serializedData);
+            }
+
+            // Write the biomes id
+            for (int i = 0; i < BIOME_COUNT; i++) {
+                final byte id = (byte) biomes[i].getId();
+                chunkWriter.writeByte(id);
+            }
+
+            // Loop all blocks
+            for (byte x = 0; x < CHUNK_SIZE_X; x++) {
+                for (short y = 0; y < CHUNK_SIZE_Y; y++) {
+                    for (byte z = 0; z < CHUNK_SIZE_Z; z++) {
+                        final int index = getBlockIndex(x, y, z);
+
+                        final short blockStateId = blocksStateId[index];
+                        final short customBlockId = customBlocksId[index];
+
+                        // No block at the position
+                        if (blockStateId == 0 && customBlockId == 0)
+                            continue;
+
+                        // Chunk coordinates
+                        chunkWriter.writeShort((short) index);
+
+                        // Block ids
+                        chunkWriter.writeShort(blockStateId);
+                        chunkWriter.writeShort(customBlockId);
+
+                        // Data
+                        final Data data = getBlockData(index);
+                        final boolean hasBlockData = data instanceof SerializableData && !data.isEmpty();
+                        chunkWriter.writeBoolean(hasBlockData);
+                        if (hasBlockData) {
+                            // Get the un-indexed data
+                            final byte[] serializedData = ((SerializableData) data).getSerializedData(typeToIndexMap, false);
+                            chunkWriter.writeBytes(serializedData);
+                        }
+                    }
+                }
+            }
         }
 
-        // Loop all blocks
-        for (byte x = 0; x < CHUNK_SIZE_X; x++) {
-            for (short y = 0; y < CHUNK_SIZE_Y; y++) {
-                for (byte z = 0; z < CHUNK_SIZE_Z; z++) {
-                    final int index = getBlockIndex(x, y, z);
+        // DATA INDEX WRITER
+        {
+            // If the chunk data contains SerializableData type, it needs to be added in the header
+            final boolean hasDataIndex = !typeToIndexMap.isEmpty();
+            dataIndexWriter.writeBoolean(hasDataIndex);
+            if (hasDataIndex) {
+                // Get the index buffer (prefixed by true to say that the chunk contains data indexes)
+                SerializableData.writeDataIndexHeader(dataIndexWriter, typeToIndexMap);
+            }
+        }
 
-                    final short blockStateId = blocksStateId[index];
-                    final short customBlockId = customBlocksId[index];
+        final BinaryWriter finalBuffer = new BinaryWriter(
+                versionWriter.getBuffer(),
+                dataIndexWriter.getBuffer(),
+                chunkWriter.getBuffer());
 
-                    // No block at the position
-                    if (blockStateId == 0 && customBlockId == 0)
-                        continue;
+        return finalBuffer.toByteArray();
+    }
 
-                    // Chunk coordinates
-                    binaryWriter.writeShort((short) index);
+    @Override
+    public void readChunk(@NotNull BinaryReader reader, ChunkCallback callback) {
+        // Check the buffer length
+        final int length = reader.available();
+        Check.argCondition(length == 0, "The length of the buffer must be > 0");
 
-                    // Block ids
-                    binaryWriter.writeShort(blockStateId);
-                    binaryWriter.writeShort(customBlockId);
+        // Run in the scheduler thread pool
+        MinecraftServer.getSchedulerManager().buildTask(() -> {
+            synchronized (this) {
+
+                // Track changes in the buffer
+                {
+                    final boolean changed = reader.available() != length;
+                    Check.stateCondition(changed,
+                            "The number of readable bytes changed, be sure to do not manipulate the buffer until the end of the reading.");
+                }
+
+                // VERSION DATA
+                final int dataFormatVersion = reader.readInteger();
+                final int dataProtocol = reader.readInteger();
+
+                if (dataFormatVersion != DATA_FORMAT_VERSION) {
+                    throw new UnsupportedOperationException(
+                            "You are parsing an old version of the chunk format, please contact the developer: " + dataFormatVersion);
+                }
+
+                // INDEX DATA
+                // Used for blocks data
+                Object2ShortMap<String> typeToIndexMap = null;
+
+                // Get if the chunk has data indexes (used for blocks data)
+                final boolean hasDataIndex = reader.readBoolean();
+                if (hasDataIndex) {
+                    // Get the data indexes which will be used to read all the individual data
+                    typeToIndexMap = SerializableData.readDataIndexes(reader);
+                }
+
+                // CHUNK DATA
+                // Chunk data
+                final boolean hasChunkData = reader.readBoolean();
+                if (hasDataIndex && hasChunkData) {
+                    SerializableData serializableData = new SerializableDataImpl();
+                    serializableData.readSerializedData(reader, typeToIndexMap);
+                }
+
+                // Biomes
+                for (int i = 0; i < BIOME_COUNT; i++) {
+                    final byte id = reader.readByte();
+                    this.biomes[i] = BIOME_MANAGER.getById(id);
+                }
+
+                // Loop for all blocks in the chunk
+                while (reader.available() > 0) {
+                    // Position
+                    final short index = reader.readShort();
+                    final byte x = ChunkUtils.blockIndexToChunkPositionX(index);
+                    final short y = ChunkUtils.blockIndexToChunkPositionY(index);
+                    final byte z = ChunkUtils.blockIndexToChunkPositionZ(index);
+
+                    // Block type
+                    final short blockStateId = reader.readShort();
+                    final short customBlockId = reader.readShort();
 
                     // Data
-                    final Data data = getBlockData(index);
-                    final boolean hasBlockData = data instanceof SerializableData && !data.isEmpty();
-                    binaryWriter.writeBoolean(hasBlockData);
-                    if (hasBlockData) {
-                        // Get the un-indexed data
-                        final byte[] serializedData = ((SerializableData) data).getSerializedData(typeToIndexMap, false);
-                        binaryWriter.writeBytes(serializedData);
+                    SerializableData data = null;
+                    {
+                        final boolean hasBlockData = reader.readBoolean();
+                        // Data deserializer
+                        if (hasDataIndex && hasBlockData) {
+                            // Read the data with the deserialized index map
+                            data = new SerializableDataImpl();
+                            data.readSerializedData(reader, typeToIndexMap);
+                        }
                     }
+
+                    UNSAFE_setBlock(x, y, z, blockStateId, customBlockId, data, CustomBlockUtils.hasUpdate(customBlockId));
                 }
+
+                // Finished reading
+                OptionalCallback.execute(callback, this);
             }
-        }
-
-        // If the chunk data contains SerializableData type, it needs to be added in the header
-        BinaryWriter indexWriter = new BinaryWriter();
-        final boolean hasDataIndex = !typeToIndexMap.isEmpty();
-        indexWriter.writeBoolean(hasDataIndex);
-        if (hasDataIndex) {
-            // Get the index buffer (prefixed by true to say that the chunk contains data indexes)
-            SerializableData.writeDataIndexHeader(indexWriter, typeToIndexMap);
-        }
-
-        // Add the hasIndex field & the index header if it has it
-        binaryWriter.writeAtStart(indexWriter);
-
-        return binaryWriter.toByteArray();
+        }).schedule();
     }
 
+    @NotNull
     @Override
-    public void readChunk(BinaryReader reader, ChunkCallback callback) {
-        // Used for blocks data
-        Object2ShortMap<String> typeToIndexMap = null;
-
-        ChunkBatch chunkBatch = instance.createChunkBatch(this);
-        try {
-
-            // Get if the chunk has data indexes (used for blocks data)
-            final boolean hasDataIndex = reader.readBoolean();
-            if (hasDataIndex) {
-                // Get the data indexes which will be used to read all the individual data
-                typeToIndexMap = SerializableData.readDataIndexes(reader);
-            }
-
-            // Chunk data
-            final boolean hasChunkData = reader.readBoolean();
-            if (hasChunkData) {
-                SerializableData serializableData = new SerializableDataImpl();
-                serializableData.readSerializedData(reader, typeToIndexMap);
-            }
-
-            // Biomes
-            for (int i = 0; i < BIOME_COUNT; i++) {
-                final byte id = reader.readByte();
-                this.biomes[i] = BIOME_MANAGER.getById(id);
-            }
-
-            // Loop for all blocks in the chunk
-            while (true) {
-                // Position
-                final short index = reader.readShort();
-                final byte x = ChunkUtils.blockIndexToChunkPositionX(index);
-                final short y = ChunkUtils.blockIndexToChunkPositionY(index);
-                final byte z = ChunkUtils.blockIndexToChunkPositionZ(index);
-
-                // Block type
-                final short blockStateId = reader.readShort();
-                final short customBlockId = reader.readShort();
-
-                // Data
-                SerializableData data = null;
-                {
-                    final boolean hasBlockData = reader.readBoolean();
-                    // Data deserializer
-                    if (hasBlockData) {
-                        // Read the data with the deserialized index map
-                        data = new SerializableDataImpl();
-                        data.readSerializedData(reader, typeToIndexMap);
-                    }
-                }
-
-                if (customBlockId != 0) {
-                    chunkBatch.setSeparateBlocks(x, y, z, blockStateId, customBlockId, data);
-                } else {
-                    chunkBatch.setBlockStateId(x, y, z, blockStateId, data);
-                }
-            }
-        } catch (IndexOutOfBoundsException e) {
-            // Finished reading
-        }
-
-        // Place all the blocks from the batch
-        chunkBatch.unsafeFlush(callback); // Success, null if file isn't properly encoded
-    }
-
-    @Override
-    protected ChunkDataPacket getFreshPacket() {
+    protected ChunkDataPacket createFreshPacket() {
         ChunkDataPacket fullDataPacket = new ChunkDataPacket();
         fullDataPacket.biomes = biomes.clone();
         fullDataPacket.chunkX = chunkX;

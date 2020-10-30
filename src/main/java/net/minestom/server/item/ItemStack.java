@@ -3,26 +3,40 @@ package net.minestom.server.item;
 import net.minestom.server.chat.ColoredText;
 import net.minestom.server.data.Data;
 import net.minestom.server.data.DataContainer;
+import net.minestom.server.entity.ItemEntity;
 import net.minestom.server.entity.Player;
+import net.minestom.server.inventory.Inventory;
+import net.minestom.server.inventory.PlayerInventory;
 import net.minestom.server.inventory.click.ClickType;
 import net.minestom.server.item.attribute.ItemAttribute;
 import net.minestom.server.item.metadata.*;
 import net.minestom.server.item.rule.VanillaStackingRule;
+import net.minestom.server.network.packet.server.play.SetSlotPacket;
 import net.minestom.server.registry.Registries;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.Direction;
 import net.minestom.server.utils.NBTUtils;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 
 import java.util.*;
 
 // TODO should we cache a ByteBuf of this item for faster packet write
+
+/**
+ * Represents an item in an inventory ({@link PlayerInventory}, {@link Inventory}) or on the ground ({@link ItemEntity}).
+ * <p>
+ * WARNING: all setters will not update the item automatically, it will need to be refreshed manually.
+ * Here a non-exhaustive list of what you can do to update the item:
+ * {@link PlayerInventory#refreshSlot(short)}, {@link Inventory#refreshSlot(short)} or a raw {@link SetSlotPacket}.
+ */
 public class ItemStack implements DataContainer {
 
-    private static final StackingRule DEFAULT_STACKING_RULE = new VanillaStackingRule(127);
+    private static final StackingRule DEFAULT_STACKING_RULE = new VanillaStackingRule(64);
 
-    private final Material material;
+    private Material material;
 
     private static StackingRule defaultStackingRule;
     private ItemMeta itemMeta;
@@ -30,7 +44,7 @@ public class ItemStack implements DataContainer {
     private byte amount;
     private int damage;
 
-    public ItemStack(Material material, byte amount, int damage) {
+    public ItemStack(@NotNull Material material, byte amount, int damage) {
         this.material = material;
         this.amount = amount;
         this.damage = damage;
@@ -63,44 +77,54 @@ public class ItemStack implements DataContainer {
         this.stackingRule = defaultStackingRule;
     }
 
-    public ItemStack(Material material, byte amount) {
+    public ItemStack(@NotNull Material material, byte amount) {
         this(material, amount, (short) 0);
     }
 
     /**
-     * Get a new air item
+     * o
+     * Gets a new {@link ItemStack} with the material sets to {@link Material#AIR}.
      *
      * @return an air item
      */
+    @NotNull
     public static ItemStack getAirItem() {
         return new ItemStack(Material.AIR, (byte) 0);
     }
 
     /**
-     * Get the default stacking rule for newly created ItemStack
+     * Gets the default {@link StackingRule} for newly created {@link ItemStack}.
      *
      * @return the default stacking rule
      */
+    @NotNull
     public static StackingRule getDefaultStackingRule() {
         return defaultStackingRule;
     }
 
     /**
-     * Change the default stacking rule for created item stack
+     * Changes the default stacking rule for created item stack.
      *
      * @param defaultStackingRule the default item stack
      * @throws NullPointerException if {@code defaultStackingRule} is null
      */
-    public static void setDefaultStackingRule(StackingRule defaultStackingRule) {
+    public static void setDefaultStackingRule(@NotNull StackingRule defaultStackingRule) {
         Check.notNull(defaultStackingRule, "StackingRule cannot be null!");
         ItemStack.defaultStackingRule = defaultStackingRule;
     }
 
-    public static ItemStack fromNBT(NBTCompound nbt) {
+    /**
+     * Loads an {@link ItemStack} from nbt.
+     *
+     * @param nbt the nbt compound containing the item
+     * @return the parsed item stack
+     */
+    @NotNull
+    public static ItemStack fromNBT(@NotNull NBTCompound nbt) {
         if (!nbt.containsKey("id") || !nbt.containsKey("Count"))
             throw new IllegalArgumentException("Invalid item NBT, must at least contain 'id' and 'Count' tags");
         final Material material = Registries.getMaterial(nbt.getString("id"));
-        final byte count = nbt.getByte("Count");
+        final byte count = nbt.getAsByte("Count");
 
         ItemStack s = new ItemStack(material, count);
 
@@ -112,7 +136,7 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get if the item is air
+     * Gets if the item material is {@link Material#AIR}.
      *
      * @return true if the material is air, false otherwise
      */
@@ -121,21 +145,21 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get if two items are similar.
-     * It does not take {@link #getAmount()} and {@link #getStackingRule()} in consideration
+     * Gets if two items are similar.
+     * It does not take {@link #getAmount()} and {@link #getStackingRule()} in consideration.
      *
      * @param itemStack The ItemStack to compare to
      * @return true if both items are similar
      */
-    public boolean isSimilar(ItemStack itemStack) {
+    public boolean isSimilar(@NotNull ItemStack itemStack) {
         synchronized (ItemStack.class) {
             final ColoredText itemDisplayName = itemStack.getDisplayName();
             final boolean displayNameCheck = (displayName == null && itemDisplayName == null) ||
-                    (displayName != null && itemDisplayName != null && displayName.equals(itemDisplayName));
+                    (displayName != null && displayName.equals(itemDisplayName));
 
             final Data itemData = itemStack.getData();
             final boolean dataCheck = (data == null && itemData == null) ||
-                    (data != null && itemData != null && data.equals(itemData));
+                    (data != null && data.equals(itemData));
 
             final boolean sameMeta = (itemStack.itemMeta == null && itemMeta == null) ||
                     (itemStack.itemMeta != null && itemMeta != null && (itemStack.itemMeta.isSimilar(itemMeta)));
@@ -153,16 +177,16 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the item damage (durability)
+     * Gets the item damage (durability).
      *
-     * @return the item damagel
+     * @return the item damage
      */
     public int getDamage() {
         return damage;
     }
 
     /**
-     * Set the item damage (durability)
+     * Sets the item damage (durability).
      *
      * @param damage the item damage
      */
@@ -171,10 +195,10 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the item amount
+     * Gets the item amount.
      * <p>
      * WARNING: for amount computation it would be better to use {@link StackingRule#getAmount(ItemStack)}
-     * to support all stacking implementation
+     * to support all stacking implementation.
      *
      * @return the item amount
      */
@@ -183,10 +207,10 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Change the item amount
+     * Changes the item amount.
      * <p>
      * WARNING: for amount computation it would be better to use {@link StackingRule#getAmount(ItemStack)}
-     * to support all stacking implementation
+     * to support all stacking implementation.
      *
      * @param amount the new item amount
      */
@@ -195,48 +219,50 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the special meta object for this item
+     * Gets the special meta object for this item.
      * <p>
-     * Can be null if not any
+     * Can be null if not any.
      *
      * @return the item meta
      */
+    @Nullable
     public ItemMeta getItemMeta() {
         return itemMeta;
     }
 
     /**
-     * Change the item meta linked to this item
+     * Changes the item meta linked to this item.
      * <p>
      * WARNING: be sure to have nbt data useful for this item, items should automatically get the appropriate
-     * item meta
+     * item meta.
      *
      * @param itemMeta the new item meta
      */
-    public void setItemMeta(ItemMeta itemMeta) {
+    public void setItemMeta(@Nullable ItemMeta itemMeta) {
         this.itemMeta = itemMeta;
     }
 
     /**
-     * Get the item display name
+     * Gets the item display name.
      *
      * @return the item display name, can be null if not present
      */
+    @Nullable
     public ColoredText getDisplayName() {
         return displayName;
     }
 
     /**
-     * Set the item display name
+     * Sets the item display name.
      *
      * @param displayName the item display name
      */
-    public void setDisplayName(ColoredText displayName) {
+    public void setDisplayName(@Nullable ColoredText displayName) {
         this.displayName = displayName;
     }
 
     /**
-     * Get if the item has a display name
+     * Gets if the item has a display name.
      *
      * @return the item display name
      */
@@ -245,25 +271,26 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the item lore
+     * Gets the item lore.
      *
-     * @return the item lore, can be null if not present
+     * @return a modifiable list containing the item lore, can be null if not present
      */
+    @Nullable
     public ArrayList<ColoredText> getLore() {
         return lore;
     }
 
     /**
-     * Set the item lore
+     * Sets the item lore.
      *
      * @param lore the item lore, can be null to remove
      */
-    public void setLore(ArrayList<ColoredText> lore) {
+    public void setLore(@Nullable ArrayList<ColoredText> lore) {
         this.lore = lore;
     }
 
     /**
-     * Get if the item has a lore
+     * Gets if the item has a lore.
      *
      * @return true if the item has lore, false otherwise
      */
@@ -272,21 +299,22 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the item enchantment map
+     * Gets the item enchantment map.
      *
      * @return an unmodifiable map containing the item enchantments
      */
+    @NotNull
     public Map<Enchantment, Short> getEnchantmentMap() {
         return Collections.unmodifiableMap(enchantmentMap);
     }
 
     /**
-     * Set an enchantment level
+     * Sets an enchantment level.
      *
      * @param enchantment the enchantment type
      * @param level       the enchantment level
      */
-    public void setEnchantment(Enchantment enchantment, short level) {
+    public void setEnchantment(@NotNull Enchantment enchantment, short level) {
         if (level < 1) {
             removeEnchantment(enchantment);
             return;
@@ -296,40 +324,41 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Remove an enchantment
+     * Removes an enchantment.
      *
      * @param enchantment the enchantment type
      */
-    public void removeEnchantment(Enchantment enchantment) {
+    public void removeEnchantment(@NotNull Enchantment enchantment) {
         this.enchantmentMap.remove(enchantment);
     }
 
     /**
-     * Get an enchantment level
+     * Gets an enchantment level.
      *
      * @param enchantment the enchantment type
      * @return the stored enchantment level, 0 if not present
      */
-    public int getEnchantmentLevel(Enchantment enchantment) {
+    public int getEnchantmentLevel(@NotNull Enchantment enchantment) {
         return this.enchantmentMap.getOrDefault(enchantment, (short) 0);
     }
 
     /**
-     * Get the item attributes
+     * Gets the item attributes.
      *
      * @return an unmodifiable {@link List} containing the item attributes
      */
+    @NotNull
     public List<ItemAttribute> getAttributes() {
         return Collections.unmodifiableList(attributes);
     }
 
     /**
-     * Get the {@link ItemAttribute} with the specified internal name
+     * Gets the {@link ItemAttribute} with the specified internal name.
      *
      * @param internalName the internal name of the attribute
      * @return the {@link ItemAttribute} with the internal name, null if not found
      */
-    public ItemAttribute getAttribute(String internalName) {
+    public ItemAttribute getAttribute(@NotNull String internalName) {
         for (ItemAttribute itemAttribute : attributes) {
             if (itemAttribute.getInternalName().equals(internalName))
                 return itemAttribute;
@@ -338,25 +367,25 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Add an attribute to the item
+     * Adds an attribute to the item.
      *
      * @param itemAttribute the attribute to add
      */
-    public void addAttribute(ItemAttribute itemAttribute) {
+    public void addAttribute(@NotNull ItemAttribute itemAttribute) {
         this.attributes.add(itemAttribute);
     }
 
     /**
-     * Remove an attribute to the item
+     * Removes an attribute to the item.
      *
      * @param itemAttribute the attribute to remove
      */
-    public void removeAttribute(ItemAttribute itemAttribute) {
+    public void removeAttribute(@NotNull ItemAttribute itemAttribute) {
         this.attributes.remove(itemAttribute);
     }
 
     /**
-     * Get the item hide flag
+     * Gets the item hide flag.
      *
      * @return the item hide flag
      */
@@ -365,7 +394,7 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Change the item hide flag. This is the integer sent when updating the item hide flag
+     * Changes the item hide flag. This is the integer sent when updating the item hide flag.
      *
      * @param hideFlag the new item hide flag
      */
@@ -374,7 +403,7 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the item custom model data
+     * Gets the item custom model data.
      *
      * @return the item custom model data
      */
@@ -383,7 +412,7 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Change the item custom model data
+     * Changes the item custom model data.
      *
      * @param customModelData the new item custom data model
      */
@@ -392,32 +421,33 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Add flags to the item
+     * Adds flags to the item.
      *
      * @param flags the flags to add
      */
-    public void addItemFlags(ItemFlag... flags) {
+    public void addItemFlags(@NotNull ItemFlag... flags) {
         for (ItemFlag f : flags) {
             this.hideFlag |= getBitModifier(f);
         }
     }
 
     /**
-     * Remove flags from the item
+     * Removes flags from the item.
      *
      * @param flags the flags to remove
      */
-    public void removeItemFlags(ItemFlag... flags) {
+    public void removeItemFlags(@NotNull ItemFlag... flags) {
         for (ItemFlag f : flags) {
             this.hideFlag &= ~getBitModifier(f);
         }
     }
 
     /**
-     * Get the item flags
+     * Gets the item flags.
      *
      * @return an unmodifiable {@link Set} containing the item flags
      */
+    @NotNull
     public Set<ItemFlag> getItemFlags() {
         Set<ItemFlag> currentFlags = EnumSet.noneOf(ItemFlag.class);
 
@@ -431,18 +461,18 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get if the item has an item flag
+     * Gets if the item has an item flag.
      *
      * @param flag the item flag
      * @return true if the item has the flag {@code flag}, false otherwise
      */
-    public boolean hasItemFlag(ItemFlag flag) {
+    public boolean hasItemFlag(@NotNull ItemFlag flag) {
         final int bitModifier = getBitModifier(flag);
         return (this.hideFlag & bitModifier) == bitModifier;
     }
 
     /**
-     * Get if the item is unbreakable
+     * Gets if the item is unbreakable.
      *
      * @return true if the item is unbreakable, false otherwise
      */
@@ -451,7 +481,7 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Make the item unbreakable
+     * Makes the item unbreakable.
      *
      * @param unbreakable true to make the item unbreakable, false otherwise
      */
@@ -460,16 +490,26 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the item material
+     * Gets the item {@link Material}.
      *
      * @return the item material
      */
+    @NotNull
     public Material getMaterial() {
         return material;
     }
 
     /**
-     * Get if the item has any nbt tag
+     * Changes the item {@link Material}.
+     *
+     * @param material the new material
+     */
+    public void setMaterial(@NotNull Material material) {
+        this.material = material;
+    }
+
+    /**
+     * Gets if the item has any nbt tag.
      *
      * @return true if the item has nbt tag, false otherwise
      */
@@ -486,16 +526,21 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Clone this item stack
+     * Clones this item stack.
      *
      * @return a cloned item stack
      */
+    @NotNull
     public synchronized ItemStack clone() {
         ItemStack itemStack = new ItemStack(material, amount, damage);
         itemStack.setDisplayName(displayName);
         itemStack.setUnbreakable(unbreakable);
-        itemStack.setLore(new ArrayList<>(getLore()));
-        itemStack.setStackingRule(getStackingRule());
+        if (lore != null) {
+            itemStack.setLore(new ArrayList<>(lore));
+        }
+        if (stackingRule != null) {
+            itemStack.setStackingRule(stackingRule);
+        }
 
         itemStack.enchantmentMap = new HashMap<>(enchantmentMap);
         itemStack.attributes = new ArrayList<>(attributes);
@@ -523,51 +568,54 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * Get the nbt consumer called when the item is serialized into a packet
+     * Gets the {@link NBTConsumer} called when the item is serialized into a packet.
      *
      * @return the item nbt consumer, null if not any
      */
+    @Nullable
     public NBTConsumer getNBTConsumer() {
         return nbtConsumer;
     }
 
     /**
-     * Change the item nbt consumer
+     * Changes the item {@link NBTConsumer}.
      *
-     * @param nbtConsumer the new item nbt consumer
+     * @param nbtConsumer the new item nbt consumer, can be null
      */
-    public void setNBTConsumer(NBTConsumer nbtConsumer) {
+    public void setNBTConsumer(@Nullable NBTConsumer nbtConsumer) {
         this.nbtConsumer = nbtConsumer;
     }
 
     /**
-     * Get the item stacking rule
+     * Gets the item {@link StackingRule}.
      *
      * @return the item stacking rule
      */
+    @NotNull
     public StackingRule getStackingRule() {
         return stackingRule;
     }
 
     /**
-     * Change the stacking rule of the item
+     * Changes the {@link StackingRule} of the item.
      *
      * @param stackingRule the new item stacking rule
      * @throws NullPointerException if {@code stackingRule} is null
      */
-    public void setStackingRule(StackingRule stackingRule) {
+    public void setStackingRule(@NotNull StackingRule stackingRule) {
         Check.notNull(stackingRule, "The stacking rule cannot be null!");
         this.stackingRule = stackingRule;
     }
 
     /**
-     * Consume this item by a specific amount
+     * Consumes this item by a specific amount.
      * <p>
-     * Will return null if the amount's amount isn't enough
+     * Will return null if the amount's amount isn't enough.
      *
      * @param amount the quantity to consume
      * @return the new item with the updated amount, null if the item cannot be consumed by this much
      */
+    @Nullable
     public ItemStack consume(int amount) {
         final int currentAmount = stackingRule.getAmount(this);
         if (currentAmount < amount)
@@ -575,15 +623,16 @@ public class ItemStack implements DataContainer {
         return stackingRule.apply(this, currentAmount - amount);
     }
 
-    private byte getBitModifier(ItemFlag hideFlag) {
+    private byte getBitModifier(@NotNull ItemFlag hideFlag) {
         return (byte) (1 << hideFlag.ordinal());
     }
 
     /**
-     * Find the item meta based on the material type
+     * Finds the {@link ItemMeta} based on the material type.
      *
-     * @return the item meta
+     * @return the item meta, null if none found
      */
+    @Nullable
     private ItemMeta findMeta() {
         if (material == Material.POTION ||
                 material == Material.LINGERING_POTION ||
@@ -624,6 +673,7 @@ public class ItemStack implements DataContainer {
         return null;
     }
 
+    @NotNull
     public NBTCompound toNBT() {
         NBTCompound compound = new NBTCompound()
                 .setByte("Count", amount)
@@ -637,10 +687,10 @@ public class ItemStack implements DataContainer {
     }
 
     /**
-     * WARNING: not implemented yet
+     * WARNING: not implemented yet.
      * <p>
      * This is be called each time an item is serialized to be send to a player,
-     * can be used to customize the display of the item based on player data
+     * can be used to customize the display of the item based on player data.
      *
      * @param player the player
      * @return the custom {@link ItemDisplay} for {@code player},
@@ -653,25 +703,25 @@ public class ItemStack implements DataContainer {
     // Callback events
 
     /**
-     * Called when the player right clicks with this item
+     * Called when the player right clicks with this item.
      *
      * @param player the player who used the item
      * @param hand   the hand used
      */
-    public void onRightClick(Player player, Player.Hand hand) {
+    public void onRightClick(@NotNull Player player, @NotNull Player.Hand hand) {
     }
 
     /**
-     * Called when the player left clicks with this item
+     * Called when the player left clicks with this item.
      *
      * @param player the player who used the item
      * @param hand   the hand used
      */
-    public void onLeftClick(Player player, Player.Hand hand) {
+    public void onLeftClick(@NotNull Player player, @NotNull Player.Hand hand) {
     }
 
     /**
-     * Called when the player right clicks with this item on a block
+     * Called when the player right clicks with this item on a block.
      *
      * @param player    the player who used the item
      * @param hand      the hand used
@@ -679,21 +729,21 @@ public class ItemStack implements DataContainer {
      * @param blockFace the block face
      * @return true if it prevents normal item use (placing blocks for instance)
      */
-    public boolean onUseOnBlock(Player player, Player.Hand hand, BlockPosition position, Direction blockFace) {
+    public boolean onUseOnBlock(@NotNull Player player, @NotNull Player.Hand hand, @NotNull BlockPosition position, @NotNull Direction blockFace) {
         return false;
     }
 
     /**
-     * Called when the player click on this item on an inventory
+     * Called when the player click on this item on an inventory.
      * <p>
-     * Executed before any events
+     * Executed before any events.
      *
      * @param player          the player who clicked on the item
      * @param clickType       the click type
      * @param slot            the slot clicked
      * @param playerInventory true if the click is in the player inventory
      */
-    public void onInventoryClick(Player player, ClickType clickType, int slot, boolean playerInventory) {
+    public void onInventoryClick(@NotNull Player player, @NotNull ClickType clickType, int slot, boolean playerInventory) {
 
     }
 }

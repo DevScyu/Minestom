@@ -1,5 +1,6 @@
 package net.minestom.server.item.metadata;
 
+import org.jetbrains.annotations.NotNull;
 import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 import org.jglrxavpok.hephaistos.nbt.NBTList;
 import org.jglrxavpok.hephaistos.nbt.NBTString;
@@ -12,9 +13,9 @@ public class WritableBookMeta implements ItemMeta {
     private ArrayList<String> pages = new ArrayList<>();
 
     /**
-     * Get an array list containing the book pages
+     * Gets an array list containing the book pages.
      * <p>
-     * The list is modifiable
+     * The list is modifiable.
      *
      * @return a modifiable {@link ArrayList} containing the book pages
      */
@@ -23,7 +24,7 @@ public class WritableBookMeta implements ItemMeta {
     }
 
     /**
-     * Set the pages list of this book
+     * Sets the pages list of this book.
      *
      * @param pages the pages list
      */
@@ -37,7 +38,7 @@ public class WritableBookMeta implements ItemMeta {
     }
 
     @Override
-    public boolean isSimilar(ItemMeta itemMeta) {
+    public boolean isSimilar(@NotNull ItemMeta itemMeta) {
         if (!(itemMeta instanceof WritableBookMeta))
             return false;
         final WritableBookMeta writableBookMeta = (WritableBookMeta) itemMeta;
@@ -45,7 +46,7 @@ public class WritableBookMeta implements ItemMeta {
     }
 
     @Override
-    public void read(NBTCompound compound) {
+    public void read(@NotNull NBTCompound compound) {
         if (compound.containsKey("pages")) {
             final NBTList<NBTString> list = compound.getList("pages");
             for (NBTString page : list) {
@@ -55,7 +56,7 @@ public class WritableBookMeta implements ItemMeta {
     }
 
     @Override
-    public void write(NBTCompound compound) {
+    public void write(@NotNull NBTCompound compound) {
         if (!pages.isEmpty()) {
             NBTList<NBTString> list = new NBTList<>(NBTTypes.TAG_String);
             for (String page : pages) {
@@ -65,6 +66,7 @@ public class WritableBookMeta implements ItemMeta {
         }
     }
 
+    @NotNull
     @Override
     public ItemMeta clone() {
         WritableBookMeta writableBookMeta = new WritableBookMeta();

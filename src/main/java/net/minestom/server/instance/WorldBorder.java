@@ -5,9 +5,11 @@ import net.minestom.server.entity.Player;
 import net.minestom.server.network.PacketWriterUtils;
 import net.minestom.server.network.packet.server.play.WorldBorderPacket;
 import net.minestom.server.utils.Position;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Represent the world border of an instance
+ * Represents the world border of an {@link Instance},
+ * can be retrieved with {@link Instance#getWorldBorder()}.
  */
 public class WorldBorder {
 
@@ -40,7 +42,7 @@ public class WorldBorder {
     }
 
     /**
-     * Change the X and Z position of the center
+     * Changes the X and Z position of the center.
      *
      * @param centerX the X center
      * @param centerZ the Z center
@@ -52,7 +54,7 @@ public class WorldBorder {
     }
 
     /**
-     * Get the center X of the world border
+     * Gets the center X of the world border.
      *
      * @return the X center
      */
@@ -61,7 +63,7 @@ public class WorldBorder {
     }
 
     /**
-     * Change the center X of the world border
+     * Changes the center X of the world border.
      *
      * @param centerX the new center X
      */
@@ -71,7 +73,7 @@ public class WorldBorder {
     }
 
     /**
-     * Get the center Z of the world border
+     * Gets the center Z of the world border.
      *
      * @return the Z center
      */
@@ -80,7 +82,7 @@ public class WorldBorder {
     }
 
     /**
-     * Change the center Z of the world border
+     * Changes the center Z of the world border.
      *
      * @param centerZ the new center Z
      */
@@ -120,7 +122,7 @@ public class WorldBorder {
     }
 
     /**
-     * Change the diameter to {@code diameter} in {@code speed} milliseconds (interpolation)
+     * Changes the diameter to {@code diameter} in {@code speed} milliseconds (interpolation).
      *
      * @param diameter the diameter target
      * @param speed    the time it will take to reach {@code diameter} in milliseconds
@@ -142,8 +144,8 @@ public class WorldBorder {
     }
 
     /**
-     * Get the diameter of the world border
-     * It takes lerp in consideration
+     * Gets the diameter of the world border.
+     * It takes lerp in consideration.
      *
      * @return the current world border diameter
      */
@@ -152,7 +154,7 @@ public class WorldBorder {
     }
 
     /**
-     * Change the diameter of the world border
+     * Changes the diameter of the world border.
      *
      * @param diameter the new diameter of the world border
      */
@@ -169,12 +171,13 @@ public class WorldBorder {
     }
 
     /**
-     * Used to check at which axis does the position collides with the world border
+     * Used to check at which axis does the position collides with the world border.
      *
      * @param position the position to check
      * @return the axis where the position collides with the world border
      */
-    public CollisionAxis getCollisionAxis(Position position) {
+    @NotNull
+    public CollisionAxis getCollisionAxis(@NotNull Position position) {
         final double radius = getDiameter() / 2d;
         final boolean checkX = position.getX() <= getCenterX() + radius && position.getX() >= getCenterX() - radius;
         final boolean checkZ = position.getZ() <= getCenterZ() + radius && position.getZ() >= getCenterZ() - radius;
@@ -189,28 +192,28 @@ public class WorldBorder {
     }
 
     /**
-     * Used to know if a position is located inside the world border or not
+     * Used to know if a position is located inside the world border or not.
      *
      * @param position the position to check
      * @return true if {@code position} is inside the world border, false otherwise
      */
-    public boolean isInside(Position position) {
+    public boolean isInside(@NotNull Position position) {
         return getCollisionAxis(position) == CollisionAxis.NONE;
     }
 
     /**
-     * Used to know if an entity is located inside the world border or not
+     * Used to know if an entity is located inside the world border or not.
      *
      * @param entity the entity to check
      * @return true if {@code entity} is inside the world border, false otherwise
      */
-    public boolean isInside(Entity entity) {
+    public boolean isInside(@NotNull Entity entity) {
         return isInside(entity.getPosition());
     }
 
     /**
-     * Used to update in real-time the current diameter time
-     * Called in the instance tick update
+     * Used to update in real-time the current diameter time.
+     * Called in the instance tick update.
      */
     protected void update() {
         if (lerpStartTime == 0) {
@@ -232,11 +235,11 @@ public class WorldBorder {
     }
 
     /**
-     * Send the world border init packet to a player
+     * Sends the world border init packet to a player.
      *
      * @param player the player to send the packet to
      */
-    protected void init(Player player) {
+    protected void init(@NotNull Player player) {
         WorldBorderPacket worldBorderPacket = new WorldBorderPacket();
         worldBorderPacket.action = WorldBorderPacket.Action.INITIALIZE;
         worldBorderPacket.wbAction = new WorldBorderPacket.WBInitialize(centerX, centerZ, oldDiameter, newDiameter, speed,
@@ -245,16 +248,17 @@ public class WorldBorder {
     }
 
     /**
-     * Get the instance linked to this world border
+     * Gets the {@link Instance} linked to this world border.
      *
-     * @return the instance of this world border
+     * @return the {@link Instance} of this world border
      */
+    @NotNull
     public Instance getInstance() {
         return instance;
     }
 
     /**
-     * Send the new world border centers to all instance players
+     * Sends the new world border centers to all instance players.
      */
     private void refreshCenter() {
         WorldBorderPacket worldBorderPacket = new WorldBorderPacket();
@@ -264,7 +268,7 @@ public class WorldBorder {
     }
 
     /**
-     * Send a {@link WorldBorderPacket} to all the instance players
+     * Sends a {@link WorldBorderPacket} to all the instance players.
      *
      * @param worldBorderPacket the packet to send
      */

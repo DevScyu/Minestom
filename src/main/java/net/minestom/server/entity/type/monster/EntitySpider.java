@@ -5,6 +5,7 @@ import net.minestom.server.entity.EntityType;
 import net.minestom.server.entity.type.Monster;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
 
@@ -18,6 +19,7 @@ public class EntitySpider extends EntityCreature implements Monster {
         setEyeHeight(0.65f);
     }
 
+    @NotNull
     @Override
     public Consumer<BinaryWriter> getMetadataConsumer() {
         return packet -> {
@@ -27,7 +29,7 @@ public class EntitySpider extends EntityCreature implements Monster {
     }
 
     @Override
-    protected void fillMetadataIndex(BinaryWriter packet, int index) {
+    protected void fillMetadataIndex(@NotNull BinaryWriter packet, int index) {
         super.fillMetadataIndex(packet, index);
         if (index == 15) {
             packet.writeByte((byte) 15);
@@ -37,7 +39,7 @@ public class EntitySpider extends EntityCreature implements Monster {
     }
 
     /**
-     * Get if the spider is climbing
+     * Gets if the spider is climbing.
      *
      * @return true if the spider is climbing, false otherwise
      */
@@ -46,7 +48,7 @@ public class EntitySpider extends EntityCreature implements Monster {
     }
 
     /**
-     * Make the spider climbs
+     * Makes the spider climbs.
      *
      * @param climbing true to make the spider climbs, false otherwise
      */

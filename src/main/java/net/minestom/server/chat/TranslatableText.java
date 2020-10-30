@@ -1,36 +1,41 @@
 package net.minestom.server.chat;
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 /**
- * Represent a translatable component which can be used in {@link ColoredText}
+ * Represents a translatable component which can be used in {@link ColoredText}.
  */
 public class TranslatableText {
 
-    private String code;
-    private String[] arguments;
+    private final String code;
+    private final String[] arguments;
 
-    private TranslatableText(String code, String[] arguments) {
+    private TranslatableText(@NotNull String code, @Nullable String[] arguments) {
         this.code = code;
         this.arguments = arguments;
     }
 
     /**
-     * Get the translatable component of the specific code
+     * Gets the translatable component of the specific code.
      *
      * @param code the translatable code
      * @return the translatable component linked to the code
      */
-    public static TranslatableText of(String code) {
+    @NotNull
+    public static TranslatableText of(@NotNull String code) {
         return new TranslatableText(code, null);
     }
 
     /**
-     * Get the translatable component and the specific code with arguments
+     * Gets the translatable component and the specific code with arguments.
      *
      * @param code      the translatable code
      * @param arguments the translatable component arguments in order
      * @return the translatable component linked to the code and arguments
      */
-    public static TranslatableText of(String code, String... arguments) {
+    @NotNull
+    public static TranslatableText of(@NotNull String code, @NotNull String... arguments) {
         return new TranslatableText(code, arguments);
     }
 

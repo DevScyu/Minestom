@@ -1,16 +1,19 @@
 package net.minestom.server.resourcepack;
 
+import net.minestom.server.entity.Player;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Represent a resource pack which can be send to a player
+ * Represents a resource pack which can be sent with {@link Player#setResourcePack(ResourcePack)}.
  */
 public class ResourcePack {
 
     private final String url;
     private final String hash;
 
-    public ResourcePack(String url, String hash) {
+    public ResourcePack(@NotNull String url, @Nullable String hash) {
         Check.notNull(url, "The resource pack url cannot be null");
         this.url = url;
         // Optional, set to empty if null
@@ -18,22 +21,24 @@ public class ResourcePack {
     }
 
     /**
-     * Get the resource pack URL
+     * Gets the resource pack URL.
      *
      * @return the resource pack URL
      */
+    @NotNull
     public String getUrl() {
         return url;
     }
 
     /**
-     * Get the resource pack hash
+     * Gets the resource pack hash.
      * <p>
      * WARNING: if null or empty, the player will probably waste bandwidth by re-downloading
-     * the resource pack
+     * the resource pack.
      *
-     * @return the resource pack hash
+     * @return the resource pack hash, can be empty
      */
+    @NotNull
     public String getHash() {
         return hash;
     }

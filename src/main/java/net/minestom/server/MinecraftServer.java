@@ -35,6 +35,7 @@ import net.minestom.server.network.packet.server.play.PluginMessagePacket;
 import net.minestom.server.network.packet.server.play.ServerDifficultyPacket;
 import net.minestom.server.particle.Particle;
 import net.minestom.server.ping.ResponseDataConsumer;
+import net.minestom.server.potion.PotionEffect;
 import net.minestom.server.potion.PotionType;
 import net.minestom.server.recipe.RecipeManager;
 import net.minestom.server.registry.ResourceGatherer;
@@ -49,6 +50,7 @@ import net.minestom.server.utils.validate.Check;
 import net.minestom.server.world.Difficulty;
 import net.minestom.server.world.DimensionTypeManager;
 import net.minestom.server.world.biomes.BiomeManager;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +58,14 @@ import java.io.IOException;
 import java.net.Proxy;
 import java.security.KeyPair;
 
+/**
+ * The main server class used to start the server and retrieve all the managers.
+ * <p>
+ * The server needs to be initialized with {@link #init()} and started with {@link #start(String, int)}.
+ * You should register all of your dimensions, biomes, commands, events, etc... in-between.
+ */
 public class MinecraftServer {
+
     @Getter
     private final static Logger LOGGER = LoggerFactory.getLogger(MinecraftServer.class);
 
@@ -83,11 +92,6 @@ public class MinecraftServer {
     public static final int THREAD_COUNT_PARALLEL_CHUNK_SAVING = 4;
 
     // Config
-    public static final int CHUNK_VIEW_DISTANCE = 10;
-    public static final int ENTITY_VIEW_DISTANCE = 5;
-    public static final int COMPRESSION_THRESHOLD = 256;
-    // TODO
-    public static final int MAX_PACKET_SIZE = 300_000;
     // Can be modified at performance cost when increased
     public static final int TICK_PER_SECOND = 20;
     private static final int MS_TO_SEC = 1000;
@@ -104,6 +108,8 @@ public class MinecraftServer {
 
     //Rate Limiting
     private static int rateLimit = 0;
+    // TODO
+    public static final int MAX_PACKET_SIZE = 300_000;
 
     private static PacketListenerManager packetListenerManager;
     private static NettyServer nettyServer;
@@ -130,6 +136,12 @@ public class MinecraftServer {
     private static MinecraftServer minecraftServer;
 
     // Data
+    private static boolean initialized;
+    private static boolean started;
+
+    private static int chunkViewDistance = 10;
+    private static int entityViewDistance = 5;
+    private static int compressionThreshold = 256;
     private static ResponseDataConsumer responseDataConsumer;
     private static String brandName = "Minestom";
     private static Difficulty difficulty = Difficulty.NORMAL;
@@ -138,11 +150,11 @@ public class MinecraftServer {
 
     //Mojang Auth
     @Getter
-    private static KeyPair keyPair = MojangCrypt.generateKeyPair();
+    private static final KeyPair keyPair = MojangCrypt.generateKeyPair();
     @Getter
-    private static AuthenticationService authService = new YggdrasilAuthenticationService(Proxy.NO_PROXY, "");
+    private static final AuthenticationService authService = new YggdrasilAuthenticationService(Proxy.NO_PROXY, "");
     @Getter
-    private static MinecraftSessionService sessionService = authService.createMinecraftSessionService();
+    private static final MinecraftSessionService sessionService = authService.createMinecraftSessionService();
 
     public static MinecraftServer init() {
         if (minecraftServer != null) // don't init twice
@@ -157,6 +169,7 @@ public class MinecraftServer {
         Block.values();
         Material.values();
         PotionType.values();
+        PotionEffect.values();
         Enchantment.values();
         EntityType.values();
         Sound.values();
@@ -197,13 +210,15 @@ public class MinecraftServer {
             LOGGER.error("An error happened during resource gathering. Minestom will attempt to load anyway, but things may not work, and crashes can happen.", e);
         }
 
+        initialized = true;
+
         minecraftServer = new MinecraftServer();
 
         return minecraftServer;
     }
 
     /**
-     * Get the current server brand name
+     * Gets the current server brand name.
      *
      * @return the server brand name
      */
@@ -212,7 +227,7 @@ public class MinecraftServer {
     }
 
     /**
-     * Change the server brand name, update the name to all connected players
+     * Changes the server brand name, update the name to all connected players.
      *
      * @param brandName the server brand name
      */
@@ -225,7 +240,7 @@ public class MinecraftServer {
     }
 
     /**
-     * Get the max number of packets a client can send over 1 second
+     * Gets the max number of packets a client can send over 1 second.
      *
      * @return the packet count limit over 1 second
      */
@@ -234,7 +249,7 @@ public class MinecraftServer {
     }
 
     /**
-     * Change the number of packet a client can send over 1 second without being disconnected
+     * Changes the number of packet a client can send over 1 second without being disconnected.
      *
      * @param rateLimit the number of packet, 0 to disable
      */
@@ -243,7 +258,7 @@ public class MinecraftServer {
     }
 
     /**
-     * Get the server difficulty showed in game option
+     * Gets the server difficulty showed in game option.
      *
      * @return the server difficulty
      */
@@ -252,7 +267,7 @@ public class MinecraftServer {
     }
 
     /**
-     * Change the server difficulty and send the appropriate packet to all connected clients
+     * Changes the server difficulty and send the appropriate packet to all connected clients.
      *
      * @param difficulty the new server difficulty
      */
@@ -268,188 +283,301 @@ public class MinecraftServer {
     }
 
     /**
-     * Get the manager handling all incoming packets
+     * Gets the manager handling all incoming packets
      *
      * @return the packet listener manager
      */
     public static PacketListenerManager getPacketListenerManager() {
+        checkInitStatus(packetListenerManager);
         return packetListenerManager;
     }
 
     /**
-     * Get the netty server
+     * Gets the netty server.
      *
      * @return the netty server
      */
     public static NettyServer getNettyServer() {
+        checkInitStatus(nettyServer);
         return nettyServer;
     }
 
     /**
-     * Get the manager handling all registered instances
+     * Gets the manager handling all registered instances.
      *
      * @return the instance manager
      */
     public static InstanceManager getInstanceManager() {
+        checkInitStatus(instanceManager);
         return instanceManager;
     }
 
     /**
-     * Get the manager handling {@link CustomBlock} and {@link BlockPlacementRule}
+     * Gets the manager handling {@link CustomBlock} and {@link BlockPlacementRule}.
      *
      * @return the block manager
      */
     public static BlockManager getBlockManager() {
+        checkInitStatus(blockManager);
         return blockManager;
     }
 
     /**
-     * Get the manager handling waiting players
+     * Gets the manager handling waiting players.
      *
      * @return the entity manager
      */
     public static EntityManager getEntityManager() {
+        checkInitStatus(entityManager);
         return entityManager;
     }
 
     /**
-     * Get the manager handling commands
+     * Gets the manager handling commands.
      *
      * @return the command manager
      */
     public static CommandManager getCommandManager() {
+        checkInitStatus(commandManager);
         return commandManager;
     }
 
     /**
-     * Get the manager handling recipes show to the clients
+     * Gets the manager handling recipes show to the clients.
      *
      * @return the recipe manager
      */
     public static RecipeManager getRecipeManager() {
+        checkInitStatus(recipeManager);
         return recipeManager;
     }
 
     /**
-     * Get the manager handling storage
+     * Gets the manager handling storage.
      *
      * @return the storage manager
      */
     public static StorageManager getStorageManager() {
+        checkInitStatus(storageManager);
         return storageManager;
     }
 
     /**
-     * Get the manager handling {@link DataType} used by {@link SerializableData}
+     * Gets the manager handling {@link DataType} used by {@link SerializableData}.
      *
      * @return the data manager
      */
     public static DataManager getDataManager() {
+        checkInitStatus(dataManager);
         return dataManager;
     }
 
     /**
-     * Get the manager handling teams
+     * Gets the manager handling teams.
      *
      * @return the team manager
      */
     public static TeamManager getTeamManager() {
+        checkInitStatus(teamManager);
         return teamManager;
     }
 
     /**
-     * Get the manager handling scheduled tasks
+     * Gets the manager handling scheduled tasks.
      *
      * @return the scheduler manager
      */
     public static SchedulerManager getSchedulerManager() {
+        checkInitStatus(schedulerManager);
         return schedulerManager;
     }
 
     /**
-     * Get the manager handling server monitoring
+     * Gets the manager handling server monitoring.
      *
      * @return the benchmark manager
      */
     public static BenchmarkManager getBenchmarkManager() {
+        checkInitStatus(benchmarkManager);
         return benchmarkManager;
     }
 
     /**
-     * Get the manager handling server connections
+     * Gets the manager handling server connections.
      *
      * @return the connection manager
      */
     public static ConnectionManager getConnectionManager() {
+        checkInitStatus(connectionManager);
         return connectionManager;
     }
 
     /**
-     * Get the consumer executed to show server-list data
+     * Gets if the server is up and running.
+     *
+     * @return true if the server is started
+     */
+    public static boolean isStarted() {
+        return started;
+    }
+
+    /**
+     * Gets the chunk view distance of the server.
+     *
+     * @return the chunk view distance
+     */
+    public static int getChunkViewDistance() {
+        return chunkViewDistance;
+    }
+
+    /**
+     * Changes the chunk view distance of the server.
+     * <p>
+     * WARNING: this need to be called before {@link #start(String, int, ResponseDataConsumer)}.
+     *
+     * @param chunkViewDistance the new chunk view distance
+     * @throws IllegalStateException if this is called after the server started
+     */
+    public static void setChunkViewDistance(int chunkViewDistance) {
+        Check.stateCondition(started, "The chunk view distance cannot be changed after the server has been started.");
+        MinecraftServer.chunkViewDistance = chunkViewDistance;
+    }
+
+    /**
+     * Gets the entity view distance of the server.
+     *
+     * @return the entity view distance
+     */
+    public static int getEntityViewDistance() {
+        return entityViewDistance;
+    }
+
+    /**
+     * Changes the entity view distance of the server.
+     * <p>
+     * WARNING: this need to be called before {@link #start(String, int, ResponseDataConsumer)}.
+     *
+     * @param entityViewDistance the new entity view distance
+     * @throws IllegalStateException if this is called after the server started
+     */
+    public static void setEntityViewDistance(int entityViewDistance) {
+        Check.stateCondition(started, "The entity view distance cannot be changed after the server has been started.");
+        MinecraftServer.entityViewDistance = entityViewDistance;
+    }
+
+    /**
+     * Gets the compression threshold of the server.
+     *
+     * @return the compression threshold, 0 means that compression is disabled
+     */
+    public static int getCompressionThreshold() {
+        return compressionThreshold;
+    }
+
+    /**
+     * Changes the compression threshold of the server.
+     * <p>
+     * WARNING: this need to be called before {@link #start(String, int, ResponseDataConsumer)}.
+     *
+     * @param compressionThreshold the new compression threshold, 0 to disable compression
+     * @throws IllegalStateException if this is called after the server started
+     */
+    public static void setCompressionThreshold(int compressionThreshold) {
+        Check.stateCondition(started, "The compression threshold cannot be changed after the server has been started.");
+        MinecraftServer.compressionThreshold = compressionThreshold;
+    }
+
+    /**
+     * Gets the consumer executed to show server-list data.
      *
      * @return the response data consumer
      */
     public static ResponseDataConsumer getResponseDataConsumer() {
+        checkInitStatus(responseDataConsumer);
         return responseDataConsumer;
     }
 
     /**
-     * Get the manager handling loot tables
+     * Gets the manager handling loot tables.
      *
      * @return the loot table manager
      */
     public static LootTableManager getLootTableManager() {
+        checkInitStatus(lootTableManager);
         return lootTableManager;
     }
 
     /**
-     * Get the manager handling dimensions
+     * Gets the manager handling dimensions.
      *
      * @return the dimension manager
      */
     public static DimensionTypeManager getDimensionTypeManager() {
+        checkInitStatus(dimensionTypeManager);
         return dimensionTypeManager;
     }
 
+    /**
+     * Gets the manager handling biomes.
+     *
+     * @return the biome manager
+     */
     public static BiomeManager getBiomeManager() {
+        checkInitStatus(biomeManager);
         return biomeManager;
     }
 
     /**
-     * Get the manager handling advancements
+     * Gets the manager handling advancements.
      *
      * @return the advancement manager
      */
     public static AdvancementManager getAdvancementManager() {
+        checkInitStatus(advancementManager);
         return advancementManager;
     }
 
     /**
-     * Get the manager handling tags
+     * Get the manager handling {@link Extension}.
+     *
+     * @return the extension manager
+     */
+    public static ExtensionManager getExtensionManager() {
+        checkInitStatus(extensionManager);
+        return extensionManager;
+    }
+
+    /**
+     * Gets the manager handling tags.
      *
      * @return the tag manager
      */
     public static TagManager getTagManager() {
+        checkInitStatus(tagManager);
         return tagManager;
     }
 
     /**
-     * Get the manager handling the server ticks
+     * Gets the manager handling the server ticks.
      *
      * @return the update manager
      */
     public static UpdateManager getUpdateManager() {
+        checkInitStatus(updateManager);
         return updateManager;
     }
 
     /**
-     * Start the server
+     * Starts the server.
      *
      * @param address              the server address
      * @param port                 the server port
      * @param responseDataConsumer the response data consumer, can be null
      */
     public void start(String address, int port, ResponseDataConsumer responseDataConsumer) {
+        Check.stateCondition(!initialized, "#start can only be called after #init");
+        Check.stateCondition(started, "The server is already started");
+
         LOGGER.info("Starting Minestom server.");
         MinecraftServer.responseDataConsumer = responseDataConsumer;
         updateManager.start();
@@ -463,10 +591,12 @@ public class MinecraftServer {
 
         LOGGER.info("Extensions loaded in " + (t1 + System.nanoTime()) / 1_000_000D + "ms");
         LOGGER.info("Minestom server started successfully.");
+
+        MinecraftServer.started = true;
     }
 
     /**
-     * Start the server
+     * Starts the server.
      *
      * @param address the server address
      * @param port    the server port
@@ -489,6 +619,12 @@ public class MinecraftServer {
         commandManager.stopConsoleThread();
         MinestomThread.shutdownAll();
         LOGGER.info("Minestom server stopped successfully.");
+    }
+
+    private static void checkInitStatus(@Nullable Object object) {
+        /*Check.stateCondition(Objects.isNull(object),
+                "You cannot access the manager before MinecraftServer#init, " +
+                        "if you are developing an extension be sure to retrieve them at least after Extension#preInitialize");*/
     }
 
 }

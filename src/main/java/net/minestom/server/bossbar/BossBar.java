@@ -6,20 +6,26 @@ import net.minestom.server.entity.Player;
 import net.minestom.server.network.packet.server.play.BossBarPacket;
 import net.minestom.server.utils.MathUtils;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
- * Represent a bossbar which can be showed to any player {@link #addViewer(Player)}
+ * Represents a boss bar which is displayed on the top of the client screen (max amount of boss bar defined by {@link #MAX_BOSSBAR}).
+ * <p>
+ * To use it, create a new instance and add the {@link Player} you want using {@link #addViewer(Player)} and remove them using {@link #removeViewer(Player)}.
+ * <p>
+ * You can retrieve all the boss bars of a {@link Player} with {@link #getBossBars(Player)}.
  */
 public class BossBar implements Viewable {
 
     private static final int MAX_BOSSBAR = 7;
-    private static Map<Player, Set<BossBar>> playerBossBarMap = new HashMap<>();
+    private static final Map<UUID, Set<BossBar>> PLAYER_BOSSBAR_MAP = new HashMap<>();
 
-    private UUID uuid = UUID.randomUUID();
-    private Set<Player> viewers = new CopyOnWriteArraySet<>();
+    private final UUID uuid = UUID.randomUUID();
+    private final Set<Player> viewers = new CopyOnWriteArraySet<>();
 
     private ColoredText title;
     private float progress;
@@ -27,24 +33,32 @@ public class BossBar implements Viewable {
     private BarDivision division;
     private byte flags;
 
-    public BossBar(ColoredText title, BarColor color, BarDivision division) {
+    /**
+     * Creates a new {@link BossBar}.
+     *
+     * @param title    the boss bar title
+     * @param color    the boss bar color
+     * @param division the boss bar division
+     */
+    public BossBar(ColoredText title, @NotNull BarColor color, @NotNull BarDivision division) {
         this.title = title;
         this.color = color;
         this.division = division;
     }
 
     /**
-     * Get all the visible boss bars of a player
+     * Gets all the visible boss bars of a {@link Player}.
      *
      * @param player the player to check the boss bars
      * @return all the visible boss bars of the player, null if not any
      */
-    public static Set<BossBar> getBossBars(Player player) {
-        return playerBossBarMap.getOrDefault(player, null);
+    @Nullable
+    public static Set<BossBar> getBossBars(@NotNull Player player) {
+        return PLAYER_BOSSBAR_MAP.getOrDefault(player.getUuid(), null);
     }
 
     @Override
-    public synchronized boolean addViewer(Player player) {
+    public synchronized boolean addViewer(@NotNull Player player) {
         // Check already viewer
         if (isViewer(player)) {
             return false;
@@ -54,13 +68,13 @@ public class BossBar implements Viewable {
         if (playerBossBars != null && playerBossBars.size() >= MAX_BOSSBAR) {
             return false;
         }
-        // Add to the map
-        addPlayer(player);
+
+        addToPlayer(player);
         return viewers.add(player);
     }
 
     @Override
-    public synchronized boolean removeViewer(Player player) {
+    public synchronized boolean removeViewer(@NotNull Player player) {
         // Check not viewer
         final boolean result = this.viewers.remove(player);
         if (result) {
@@ -71,13 +85,14 @@ public class BossBar implements Viewable {
         return result;
     }
 
+    @NotNull
     @Override
     public Set<Player> getViewers() {
         return Collections.unmodifiableSet(viewers);
     }
 
     /**
-     * Get the bossbar title
+     * Gets the bossbar title.
      *
      * @return the current title of the bossbar
      */
@@ -86,16 +101,17 @@ public class BossBar implements Viewable {
     }
 
     /**
-     * Change the bossbar title
+     * Changes the bossbar title.
      *
      * @param title the new title of the bossbar
      */
     public void setTitle(ColoredText title) {
         this.title = title;
+        updateTitle();
     }
 
     /**
-     * Get the bossbar progress
+     * Gets the bossbar progress.
      *
      * @return the current progress of the bossbar
      */
@@ -104,7 +120,7 @@ public class BossBar implements Viewable {
     }
 
     /**
-     * Change the bossbar progress
+     * Changes the bossbar progress.
      *
      * @param progress the new progress bar percentage
      * @throws IllegalArgumentException if {@code progress} is not between 0 and 1
@@ -117,45 +133,47 @@ public class BossBar implements Viewable {
     }
 
     /**
-     * Get the bossbar color
+     * Gets the bossbar color.
      *
      * @return the current bossbar color
      */
+    @NotNull
     public BarColor getColor() {
         return color;
     }
 
     /**
-     * Change the bossbar color
+     * Changes the bossbar color.
      *
      * @param color the new color of the bossbar
      */
-    public void setColor(BarColor color) {
+    public void setColor(@NotNull BarColor color) {
         this.color = color;
         updateStyle();
     }
 
     /**
-     * Get the bossbar division
+     * Gets the bossbar division.
      *
      * @return the current bossbar division
      */
+    @NotNull
     public BarDivision getDivision() {
         return division;
     }
 
     /**
-     * Change the bossbar division
+     * Changes the bossbar division.
      *
      * @param division the new bossbar division count
      */
-    public void setDivision(BarDivision division) {
+    public void setDivision(@NotNull BarDivision division) {
         this.division = division;
         updateStyle();
     }
 
     /**
-     * Get the bossbar flags
+     * Gets the bossbar flags.
      *
      * @return the flags
      */
@@ -164,7 +182,7 @@ public class BossBar implements Viewable {
     }
 
     /**
-     * Set the bossbar flags
+     * Sets the bossbar flags.
      *
      * @param flags the bossbar flags
      * @see <a href="https://wiki.vg/Protocol#Boss_Bar">Boss bar packet</a>
@@ -174,7 +192,7 @@ public class BossBar implements Viewable {
     }
 
     /**
-     * Delete the boss bar and remove all of its viewers
+     * Deletes the boss bar and remove all of its viewers.
      */
     public void delete() {
         BossBarPacket bossBarPacket = new BossBarPacket();
@@ -183,23 +201,48 @@ public class BossBar implements Viewable {
         sendPacketToViewers(bossBarPacket);
     }
 
-    private void addPlayer(Player player) {
-        Set<BossBar> bossBars = playerBossBarMap.computeIfAbsent(player, p -> new HashSet<>());
-        bossBars.add(this);
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        BossBar bossBar = (BossBar) o;
+        return Objects.equals(uuid, bossBar.uuid);
     }
 
-    private void removePlayer(Player player) {
-        if (!playerBossBarMap.containsKey(player)) {
+    @Override
+    public int hashCode() {
+        return Objects.hash(uuid);
+    }
+
+    /**
+     * Removes the player from the bossbar map.
+     *
+     * @param player the player to remove from the map
+     */
+    private void removePlayer(@NotNull Player player) {
+        final UUID uuid = player.getUuid();
+        if (!PLAYER_BOSSBAR_MAP.containsKey(uuid)) {
             return;
         }
-        Set<BossBar> bossBars = playerBossBarMap.get(player);
+        Set<BossBar> bossBars = PLAYER_BOSSBAR_MAP.get(uuid);
         bossBars.remove(this);
         if (bossBars.isEmpty()) {
-            playerBossBarMap.remove(player);
+            PLAYER_BOSSBAR_MAP.remove(uuid);
         }
     }
 
-    private void addToPlayer(Player player) {
+    /**
+     * Sends a {@link BossBarPacket} to create the bossbar.
+     * <p>
+     * Also add the bossbar to the player viewing list.
+     *
+     * @param player the player to create the bossbar to
+     */
+    private void addToPlayer(@NotNull Player player) {
+        // Add to the map
+        Set<BossBar> bossBars = PLAYER_BOSSBAR_MAP.computeIfAbsent(player.getUuid(), p -> new HashSet<>());
+        bossBars.add(this);
+
         BossBarPacket bossBarPacket = new BossBarPacket();
         bossBarPacket.uuid = uuid;
         bossBarPacket.action = BossBarPacket.Action.ADD;
@@ -211,11 +254,18 @@ public class BossBar implements Viewable {
         player.getPlayerConnection().sendPacket(bossBarPacket);
     }
 
-    private void removeToPlayer(Player player) {
-        BossBarPacket bossBarPacket = new BossBarPacket();
-        bossBarPacket.uuid = uuid;
-        bossBarPacket.action = BossBarPacket.Action.REMOVE;
-        player.getPlayerConnection().sendPacket(bossBarPacket);
+    /**
+     * Sends a {@link BossBarPacket} to remove the bossbar.
+     *
+     * @param player the player to remove the bossbar to
+     */
+    private void removeToPlayer(@NotNull Player player) {
+        if (!player.isRemoved()) {
+            BossBarPacket bossBarPacket = new BossBarPacket();
+            bossBarPacket.uuid = uuid;
+            bossBarPacket.action = BossBarPacket.Action.REMOVE;
+            player.getPlayerConnection().sendPacket(bossBarPacket);
+        }
     }
 
     private void updateTitle() {

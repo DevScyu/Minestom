@@ -6,7 +6,7 @@ import net.minestom.server.item.ItemStack;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.Rotation;
 import net.minestom.server.utils.binary.BinaryWriter;
-import net.minestom.server.utils.item.ItemStackUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
 
@@ -14,11 +14,11 @@ import java.util.function.Consumer;
 // "You have to set both Orientation and Yaw/Pitch accordingly, otherwise it will not work."
 public class EntityItemFrame extends ObjectEntity {
 
-    private ItemFrameOrientation orientation;
+    private final ItemFrameOrientation orientation;
     private ItemStack itemStack;
     private Rotation rotation;
 
-    public EntityItemFrame(Position spawnPosition, ItemFrameOrientation orientation) {
+    public EntityItemFrame(@NotNull Position spawnPosition, @NotNull ItemFrameOrientation orientation) {
         super(EntityType.ITEM_FRAME, spawnPosition);
         this.orientation = orientation;
         this.rotation = Rotation.NONE;
@@ -26,6 +26,7 @@ public class EntityItemFrame extends ObjectEntity {
         setGravity(0f);
     }
 
+    @NotNull
     @Override
     public Consumer<BinaryWriter> getMetadataConsumer() {
         return packet -> {
@@ -36,12 +37,12 @@ public class EntityItemFrame extends ObjectEntity {
     }
 
     @Override
-    protected void fillMetadataIndex(BinaryWriter packet, int index) {
+    protected void fillMetadataIndex(@NotNull BinaryWriter packet, int index) {
         super.fillMetadataIndex(packet, index);
         if (index == 7) {
             packet.writeByte((byte) 7);
             packet.writeByte(METADATA_SLOT);
-            packet.writeItemStack(ItemStackUtils.notNull(itemStack));
+            packet.writeItemStack(itemStack == null ? ItemStack.getAirItem() : itemStack);
         } else if (index == 8) {
             packet.writeByte((byte) 8);
             packet.writeByte(METADATA_VARINT);
@@ -55,7 +56,7 @@ public class EntityItemFrame extends ObjectEntity {
     }
 
     /**
-     * Get the item stack in the frame
+     * Gets the item stack in the frame.
      *
      * @return the item stack in the frame
      */
@@ -64,7 +65,7 @@ public class EntityItemFrame extends ObjectEntity {
     }
 
     /**
-     * Change the item stack in the frame
+     * Changes the item stack in the frame.
      *
      * @param itemStack the new item stack in the frame
      */
@@ -74,26 +75,27 @@ public class EntityItemFrame extends ObjectEntity {
     }
 
     /**
-     * Get the item rotation
+     * Gets the item rotation.
      *
      * @return the item rotation
      */
+    @NotNull
     public Rotation getRotation() {
         return rotation;
     }
 
     /**
-     * Change the item rotation
+     * Changes the item rotation.
      *
      * @param rotation the new item rotation
      */
-    public void setRotation(Rotation rotation) {
+    public void setRotation(@NotNull Rotation rotation) {
         this.rotation = rotation;
         sendMetadataIndex(8);
     }
 
     /**
-     * Represent the orientation of the frame
+     * Represents the orientation of the frame.
      */
     public enum ItemFrameOrientation {
         DOWN, UP, NORTH, SOUTH, WEST, EAST

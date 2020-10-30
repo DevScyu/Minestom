@@ -2,6 +2,7 @@ package net.minestom.server.chat;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,105 +10,123 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Represent a text with one or multiple colors
+ * Represents a text with one or multiple colors.
  * <p>
- * Used when the message can contain colors but not events like in {@link RichMessage}
+ * Used when the message can contain colors but not events like in {@link RichMessage}.
+ * <p>
+ * To create one, you simply call one of the static methods like {@link #of(ChatColor, String)},
+ * you can then continue to append text with {@link #append(ChatColor, String)}.
  */
 public class ColoredText extends JsonMessage {
 
     // the raw text
     private String message;
 
-    private ColoredText(String message) {
+    /**
+     * Creates a colored text.
+     * <p>
+     * You need to use one of the static methods instead of the constructor.
+     *
+     * @param message the content of the text
+     * @see #of(String) to create a colored text
+     */
+    private ColoredText(@NotNull String message) {
         this.message = message;
         refreshUpdate();
     }
 
     /**
-     * Create a {@link ColoredText}
+     * Creates a {@link ColoredText}.
      *
      * @param color   the text color
      * @param message the text message
      * @return the created {@link ColoredText}
      */
-    public static ColoredText of(ChatColor color, String message) {
+    public static ColoredText of(@NotNull ChatColor color, @NotNull String message) {
         return new ColoredText(color + message);
     }
 
     /**
-     * Create a {@link ColoredText}
+     * Creates a {@link ColoredText}.
      *
      * @param message the text message
      * @return the created {@link ColoredText}
      */
-    public static ColoredText of(String message) {
+    @NotNull
+    public static ColoredText of(@NotNull String message) {
         return of(ChatColor.WHITE, message);
     }
 
     /**
-     * Create a {@link ColoredText} with a legacy text
+     * Creates a {@link ColoredText} with a legacy text.
      *
      * @param message   the text message
      * @param colorChar the char used before the color code
      * @return the created {@link ColoredText}
      */
-    public static ColoredText ofLegacy(String message, char colorChar) {
-        String legacy = toLegacy(message, colorChar);
-
+    @NotNull
+    public static ColoredText ofLegacy(@NotNull String message, char colorChar) {
+        final String legacy = toLegacy(message, colorChar);
         return of(legacy);
     }
 
     /**
-     * Append the text
+     * Appends the text.
      *
      * @param color   the text color
      * @param message the text message
      * @return this {@link ColoredText}
      */
-    public ColoredText append(ChatColor color, String message) {
+    @NotNull
+    public ColoredText append(@NotNull ChatColor color, @NotNull String message) {
         this.message += color + message;
         refreshUpdate();
         return this;
     }
 
     /**
-     * Append the text
+     * Appends the text.
      *
      * @param message the text message
      * @return this {@link ColoredText}
      */
-    public ColoredText append(String message) {
+    @NotNull
+    public ColoredText append(@NotNull String message) {
         return append(ChatColor.NO_COLOR, message);
     }
 
     /**
-     * Add legacy text
+     * Adds legacy text.
      *
      * @param message   the legacy text
      * @param colorChar the char used before the color code
      * @return this {@link ColoredText}
      */
-    public ColoredText appendLegacy(String message, char colorChar) {
+    @NotNull
+    public ColoredText appendLegacy(@NotNull String message, char colorChar) {
         final String legacy = toLegacy(message, colorChar);
         return of(legacy);
     }
 
     /**
-     * Get the raw  text
+     * Gets the raw text.
      *
      * @return the raw text
+     * @see #toString() for the Json representation
      */
+    @NotNull
     public String getMessage() {
         return message;
     }
 
     /**
-     * Get the Json representation of this colored text
+     * Gets the Json representation of this colored text.
      * <p>
-     * Used to send a message
+     * Used to "compile" the message, retrieved with {@link #toString()}.
      *
      * @return the Json representation of the text
      */
+    @NotNull
     @Override
     public JsonObject getJsonObject() {
         final List<JsonObject> components = getComponents();
@@ -129,15 +148,15 @@ public class ColoredText extends JsonMessage {
             mainObject.add("extra", extraArray);
         }
 
-
         return mainObject;
     }
 
     /**
-     * Get the list of objects composing the message
+     * Gets the list of objects composing the message.
      *
      * @return the list of objects composing the message
      */
+    @NotNull
     protected List<JsonObject> getComponents() {
         final List<JsonObject> objects = new ArrayList<>();
         // No message, return empty list
@@ -180,8 +199,8 @@ public class ColoredText extends JsonMessage {
                 // Color component
                 if (formatString.startsWith("#")) {
                     // Remove the first # character to get code
-                    String colorCode = formatString.substring(1);
-                    ChatColor color = ChatColor.fromName(colorCode);
+                    final String colorCode = formatString.substring(1);
+                    final ChatColor color = ChatColor.fromName(colorCode);
                     if (color == ChatColor.NO_COLOR) {
                         // Use rgb formatting (#ffffff)
                         currentColor = "#" + colorCode;
@@ -255,15 +274,15 @@ public class ColoredText extends JsonMessage {
     }
 
     /**
-     * Get the object representing a message (raw/keybind/translatable)
+     * Gets the object representing a message (raw/keybind/translatable).
      *
      * @param messageType the message type
      * @param message     the message
      * @param color       the last color
      * @return a json object representing a message
      */
-    private JsonObject getMessagePart(MessageType messageType, String message, String color,
-                                      SpecialComponentContainer specialComponentContainer) {
+    private JsonObject getMessagePart(@NotNull MessageType messageType, @NotNull String message, @NotNull String color,
+                                      @NotNull SpecialComponentContainer specialComponentContainer) {
         JsonObject object = new JsonObject();
         switch (messageType) {
             case RAW:
@@ -290,12 +309,13 @@ public class ColoredText extends JsonMessage {
         return object;
     }
 
+    @NotNull
     private String getBoolean(boolean value) {
         return value ? "true" : "false";
     }
 
     /**
-     * Convert a legacy text to our format which can be used by {@link #of(String)} etc...
+     * Converts a legacy text to our format which can be used by {@link #of(String)} etc...
      * <p>
      * eg: "&fHey" -> "{#white}Hey"
      *
@@ -303,7 +323,7 @@ public class ColoredText extends JsonMessage {
      * @param colorChar the char used before the color code
      * @return the converted legacy text
      */
-    private static String toLegacy(String message, char colorChar) {
+    private static String toLegacy(@NotNull String message, char colorChar) {
         StringBuilder result = new StringBuilder();
 
         for (int i = 0; i < message.length(); i++) {
@@ -327,14 +347,14 @@ public class ColoredText extends JsonMessage {
     }
 
     /**
-     * Represents an element which can change based on the client which receive the text
+     * Represents an element which can change based on the client which receive the text.
      */
     private enum MessageType {
         RAW, KEYBIND, TRANSLATABLE
     }
 
     /**
-     * Used to keep a "color" state in the text
+     * Used to keep a "color" state in the text.
      */
     private static class SpecialComponentContainer {
         boolean bold = false;

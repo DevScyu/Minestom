@@ -1,12 +1,14 @@
 package net.minestom.server.command.builder.arguments.minecraft;
 
 import net.minestom.server.utils.math.FloatRange;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.regex.Pattern;
 
 /**
- * Represent an argument which will give you an {@link FloatRange}
- * Chat format: ..3, 3.., 5..10, 15
+ * Represents an argument which will give you an {@link FloatRange}.
+ * <p>
+ * Example: ..3, 3.., 5..10, 15
  */
 public class ArgumentFloatRange extends ArgumentRange<FloatRange> {
 
@@ -15,7 +17,7 @@ public class ArgumentFloatRange extends ArgumentRange<FloatRange> {
     }
 
     @Override
-    public int getCorrectionResult(String value) {
+    public int getCorrectionResult(@NotNull String value) {
         try {
             Float.valueOf(value);
             return SUCCESS; // Is a single number
@@ -42,33 +44,34 @@ public class ArgumentFloatRange extends ArgumentRange<FloatRange> {
         }
     }
 
+    @NotNull
     @Override
-    public FloatRange parse(String value) {
+    public FloatRange parse(@NotNull String value) {
         if (value.contains("..")) {
             final int index = value.indexOf('.');
-            String[] split = value.split(Pattern.quote(".."));
+            final String[] split = value.split(Pattern.quote(".."));
 
             final float min;
             final float max;
             if (index == 0) {
                 // Format ..NUMBER
                 min = Float.MIN_VALUE;
-                max = Float.valueOf(split[0]);
+                max = Float.parseFloat(split[0]);
             } else {
                 if (split.length == 2) {
                     // Format NUMBER..NUMBER
-                    min = Float.valueOf(split[0]);
-                    max = Float.valueOf(split[1]);
+                    min = Float.parseFloat(split[0]);
+                    max = Float.parseFloat(split[1]);
                 } else {
                     // Format NUMBER..
-                    min = Float.valueOf(split[0]);
+                    min = Float.parseFloat(split[0]);
                     max = Float.MAX_VALUE;
                 }
             }
 
             return new FloatRange(min, max);
         } else {
-            final float number = Float.valueOf(value);
+            final float number = Float.parseFloat(value);
             return new FloatRange(number);
         }
     }

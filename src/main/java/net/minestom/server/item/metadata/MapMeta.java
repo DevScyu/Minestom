@@ -1,6 +1,7 @@
 package net.minestom.server.item.metadata;
 
 import net.minestom.server.chat.ChatColor;
+import org.jetbrains.annotations.NotNull;
 import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 import org.jglrxavpok.hephaistos.nbt.NBTList;
 import org.jglrxavpok.hephaistos.nbt.NBTTypes;
@@ -15,14 +16,15 @@ public class MapMeta implements ItemMeta {
     private List<MapDecoration> decorations = new ArrayList<>();
     private ChatColor mapColor = ChatColor.NO_COLOR;
 
-    public MapMeta() {}
+    public MapMeta() {
+    }
 
     public MapMeta(int id) {
         this.mapId = id;
     }
 
     /**
-     * Get the map id
+     * Gets the map id.
      *
      * @return the map id
      */
@@ -31,7 +33,7 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Change the map id
+     * Changes the map id.
      *
      * @param mapId the new map id
      */
@@ -40,7 +42,7 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Get the map scale direction
+     * Gets the map scale direction.
      *
      * @return the map scale direction
      */
@@ -49,7 +51,7 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Change the map scale direction
+     * Changes the map scale direction.
      *
      * @param mapScaleDirection the new map scale direction
      */
@@ -58,7 +60,7 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Get the map decorations
+     * Gets the map decorations.
      *
      * @return a modifiable list containing all the map decorations
      */
@@ -67,7 +69,7 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Change the map decorations list
+     * Changes the map decorations list.
      *
      * @param decorations the new map decorations list
      */
@@ -76,7 +78,7 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Get the map color
+     * Gets the map color.
      *
      * @return the map color
      */
@@ -85,9 +87,9 @@ public class MapMeta implements ItemMeta {
     }
 
     /**
-     * Change the map color
+     * Changes the map color.
      * <p>
-     * WARNING: RGB colors are not supported
+     * WARNING: RGB colors are not supported.
      *
      * @param mapColor the new map color
      */
@@ -102,7 +104,7 @@ public class MapMeta implements ItemMeta {
     }
 
     @Override
-    public boolean isSimilar(ItemMeta itemMeta) {
+    public boolean isSimilar(@NotNull ItemMeta itemMeta) {
         if (!(itemMeta instanceof MapMeta))
             return false;
 
@@ -114,33 +116,44 @@ public class MapMeta implements ItemMeta {
     }
 
     @Override
-    public void read(NBTCompound compound) {
+    public void read(@NotNull NBTCompound compound) {
         if (compound.containsKey("map")) {
-            this.mapId = compound.getInt("map");
+            this.mapId = compound.getAsInt("map");
         }
 
         if (compound.containsKey("map_scale_direction")) {
-            this.mapScaleDirection = compound.getInt("map_scale_direction");
+            this.mapScaleDirection = compound.getAsInt("map_scale_direction");
         }
 
         if (compound.containsKey("Decorations")) {
             final NBTList<NBTCompound> decorationsList = compound.getList("Decorations");
             for (NBTCompound decorationCompound : decorationsList) {
                 final String id = decorationCompound.getString("id");
-                final byte type = decorationCompound.getByte("type");
-                final byte x = decorationCompound.getByte("x");
-                final byte z = decorationCompound.getByte("z");
-                final double rotation = decorationCompound.getByte("rot");
+                final byte type = decorationCompound.getAsByte("type");
+                byte x = 0;
+
+                if(decorationCompound.containsKey("x")) {
+                    x = decorationCompound.getAsByte("x");
+                }
+
+                byte z = 0;
+                if(decorationCompound.containsKey("z")) {
+                    z = decorationCompound.getAsByte("z");
+                }
+
+                double rotation = 0.0;
+                if(decorationCompound.containsKey("rot")) {
+                    rotation = decorationCompound.getAsDouble("rot");
+                }
 
                 this.decorations.add(new MapDecoration(id, type, x, z, rotation));
-
             }
         }
 
         if (compound.containsKey("display")) {
             final NBTCompound displayCompound = compound.getCompound("display");
             if (displayCompound.containsKey("MapColor")) {
-                final int color = displayCompound.getInt("MapColor");
+                final int color = displayCompound.getAsInt("MapColor");
                 this.mapColor = ChatColor.fromId(color);
             }
         }
@@ -148,7 +161,7 @@ public class MapMeta implements ItemMeta {
     }
 
     @Override
-    public void write(NBTCompound compound) {
+    public void write(@NotNull NBTCompound compound) {
         compound.setInt("map", mapId);
 
         compound.setInt("map_scale_direction", mapScaleDirection);
@@ -179,6 +192,7 @@ public class MapMeta implements ItemMeta {
         }
     }
 
+    @NotNull
     @Override
     public ItemMeta clone() {
         MapMeta mapMeta = new MapMeta();
@@ -190,10 +204,10 @@ public class MapMeta implements ItemMeta {
     }
 
     public static class MapDecoration {
-        private String id;
-        private byte type;
-        private byte x, z;
-        private double rotation;
+        private final String id;
+        private final byte type;
+        private final byte x, z;
+        private final double rotation;
 
         public MapDecoration(String id, byte type, byte x, byte z, double rotation) {
             this.id = id;
@@ -204,7 +218,7 @@ public class MapMeta implements ItemMeta {
         }
 
         /**
-         * Get the arbitrary decoration id
+         * Gets the arbitrary decoration id.
          *
          * @return the decoration id
          */
@@ -213,7 +227,7 @@ public class MapMeta implements ItemMeta {
         }
 
         /**
-         * Get the decoration type
+         * Gets the decoration type.
          *
          * @return the decoration type
          * @see <a href="https://minecraft.gamepedia.com/Map#Map_icons">Map icons</a>
@@ -223,7 +237,7 @@ public class MapMeta implements ItemMeta {
         }
 
         /**
-         * Get the X position of the decoration
+         * Gets the X position of the decoration.
          *
          * @return the X position
          */
@@ -232,7 +246,7 @@ public class MapMeta implements ItemMeta {
         }
 
         /**
-         * Get the Z position of the decoration
+         * Gets the Z position of the decoration.
          *
          * @return the Z position
          */
@@ -241,7 +255,7 @@ public class MapMeta implements ItemMeta {
         }
 
         /**
-         * Get the rotation of the symbol (0;360)
+         * Gets the rotation of the symbol (0;360).
          *
          * @return the rotation of the symbol
          */

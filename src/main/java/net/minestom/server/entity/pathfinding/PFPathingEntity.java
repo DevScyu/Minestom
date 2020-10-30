@@ -10,7 +10,7 @@ import net.minestom.server.utils.Position;
 
 public class PFPathingEntity implements IPathingEntity {
 
-    private EntityCreature entity;
+    private final EntityCreature entity;
 
     private float searchRange;
     private Position targetPosition;
@@ -44,7 +44,7 @@ public class PFPathingEntity implements IPathingEntity {
     }
 
     /**
-     * Change the search range of the entity
+     * Changes the search range of the entity
      *
      * @param searchRange the new entity's search range
      */

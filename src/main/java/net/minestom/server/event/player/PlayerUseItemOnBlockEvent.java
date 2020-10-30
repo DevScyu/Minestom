@@ -5,9 +5,10 @@ import net.minestom.server.event.Event;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.Direction;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Used when a player is clicking a block with an item (but is not a block in item form)
+ * Used when a player is clicking on a block with an item (but is not a block in item form).
  */
 public class PlayerUseItemOnBlockEvent extends Event {
 
@@ -17,7 +18,9 @@ public class PlayerUseItemOnBlockEvent extends Event {
     private final BlockPosition position;
     private final Direction blockFace;
 
-    public PlayerUseItemOnBlockEvent(Player player, Player.Hand hand, ItemStack itemStack, BlockPosition position, Direction blockFace) {
+    public PlayerUseItemOnBlockEvent(@NotNull Player player, @NotNull Player.Hand hand,
+                                     @NotNull ItemStack itemStack,
+                                     @NotNull BlockPosition position, @NotNull Direction blockFace) {
         this.player = player;
         this.hand = hand;
         this.itemStack = itemStack;
@@ -26,46 +29,51 @@ public class PlayerUseItemOnBlockEvent extends Event {
     }
 
     /**
-     * Get the player who used an item while clicking on a block
+     * Gets the player who used an item while clicking on a block.
      *
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Get the position of the interacted block
+     * Gets the position of the interacted block.
      *
      * @return the block position
      */
+    @NotNull
     public BlockPosition getPosition() {
         return position;
     }
 
     /**
-     * Get which face the player has interacted with
+     * Gets which face the player has interacted with.
      *
      * @return the block face
      */
+    @NotNull
     public Direction getBlockFace() {
         return blockFace;
     }
 
     /**
-     * Get which hand the player used to interact with the block
+     * Gets which hand the player used to interact with the block.
      *
      * @return the hand
      */
+    @NotNull
     public Player.Hand getHand() {
         return hand;
     }
 
     /**
-     * Get with which item the player has interacted with the block
+     * Gets with which item the player has interacted with the block.
      *
      * @return the item
      */
+    @NotNull
     public ItemStack getItemStack() {
         return itemStack;
     }

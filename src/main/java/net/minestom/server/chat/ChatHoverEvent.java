@@ -2,39 +2,46 @@ package net.minestom.server.chat;
 
 import com.google.gson.JsonObject;
 import net.minestom.server.entity.Entity;
-import net.minestom.server.entity.EntityType;
 import net.minestom.server.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 
 /**
- * Represent a hover event for a specific portion of the message
+ * Represents a hover event for a specific portion of the message.
  */
 public class ChatHoverEvent {
 
-    private String action;
+    private final String action;
     private String value;
     private JsonObject valueObject;
-    private boolean isJson;
+    private final boolean isJson;
 
-    private ChatHoverEvent(String action, String value) {
+    private ChatHoverEvent(@NotNull String action, @NotNull String value) {
         this.action = action;
         this.value = value;
+        this.valueObject = null;
+        this.isJson = false;
     }
 
-    private ChatHoverEvent(String action, JsonObject valueObject) {
+    private ChatHoverEvent(@NotNull String action, @NotNull JsonObject valueObject) {
         this.action = action;
+        this.value = null;
         this.valueObject = valueObject;
         this.isJson = true;
     }
 
+    @NotNull
     protected String getAction() {
         return action;
     }
 
+    @Nullable
     protected String getValue() {
         return value;
     }
 
+    @Nullable
     protected JsonObject getValueObject() {
         return valueObject;
     }
@@ -44,43 +51,47 @@ public class ChatHoverEvent {
     }
 
     /**
-     * Show a {@link ColoredText} when hovered
+     * Shows a {@link ColoredText} when hovered.
      *
      * @param text the text to show
      * @return the chat hover event
      */
-    public static ChatHoverEvent showText(ColoredText text) {
+    @NotNull
+    public static ChatHoverEvent showText(@NotNull ColoredText text) {
         return new ChatHoverEvent("show_text", text.getJsonObject());
     }
 
     /**
-     * Show a raw text when hovered
+     * Shows a raw text when hovered.
      *
      * @param text the text to show
      * @return the chat hover event
      */
-    public static ChatHoverEvent showText(String text) {
+    @NotNull
+    public static ChatHoverEvent showText(@NotNull String text) {
         return new ChatHoverEvent("show_text", text);
     }
 
     /**
-     * Show an item when hovered
+     * Shows an item when hovered.
      *
      * @param itemStack the item to show
      * @return the chat hover event
      */
-    public static ChatHoverEvent showItem(ItemStack itemStack) {
+    @NotNull
+    public static ChatHoverEvent showItem(@NotNull ItemStack itemStack) {
         final String json = itemStack.toNBT().toSNBT();
         return new ChatHoverEvent("show_item", json);
     }
 
     /**
-     * Show an entity when hovered
+     * Shows an entity when hovered.
      *
      * @param entity the entity to show
      * @return the chat hover event
      */
-    public static ChatHoverEvent showEntity(Entity entity) {
+    @NotNull
+    public static ChatHoverEvent showEntity(@NotNull Entity entity) {
         NBTCompound compound = new NBTCompound()
                 .setString("id", entity.getUuid().toString())
                 .setString("type", entity.getEntityType().getNamespaceID());

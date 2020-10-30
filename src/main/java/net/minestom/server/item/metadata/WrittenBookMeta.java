@@ -2,6 +2,8 @@ package net.minestom.server.item.metadata;
 
 import net.minestom.server.chat.ChatParser;
 import net.minestom.server.chat.ColoredText;
+import net.minestom.server.chat.JsonMessage;
+import org.jetbrains.annotations.NotNull;
 import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 import org.jglrxavpok.hephaistos.nbt.NBTList;
 import org.jglrxavpok.hephaistos.nbt.NBTString;
@@ -15,10 +17,10 @@ public class WrittenBookMeta implements ItemMeta {
     private WrittenBookGeneration generation;
     private String author;
     private String title;
-    private ArrayList<ColoredText> pages = new ArrayList<>();
+    private ArrayList<JsonMessage> pages = new ArrayList<>();
 
     /**
-     * Get if the book is resolved
+     * Gets if the book is resolved.
      *
      * @return true if the book is resolved, false otherwise
      */
@@ -27,7 +29,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Set to true when the book (or a book from the stack)
+     * Sets to true when the book (or a book from the stack)
      * is opened for the first time after being created.
      *
      * @param resolved true to make the book resolved, false otherwise
@@ -37,7 +39,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Get the copy tier of the book
+     * Gets the copy tier of the book.
      *
      * @return the copy tier of the book
      */
@@ -46,7 +48,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Set the copy tier of the book
+     * Sets the copy tier of the book.
      *
      * @param generation the copy tier of the book
      */
@@ -55,7 +57,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Get the author of the book
+     * Gets the author of the book.
      *
      * @return the author of the book
      */
@@ -64,7 +66,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Set the author of the book
+     * Sets the author of the book.
      *
      * @param author the author of the book
      */
@@ -73,7 +75,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Get the title of the book
+     * Gets the title of the book.
      *
      * @return the title of the book
      */
@@ -82,7 +84,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Set the title of the book
+     * Sets the title of the book.
      *
      * @param title the title of the book
      */
@@ -91,22 +93,22 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     /**
-     * Get an {@link ArrayList} containing all the pages
+     * Gets an {@link ArrayList} containing all the pages.
      * <p>
-     * The list is modifiable
+     * The list is modifiable.
      *
      * @return a modifiable {@link ArrayList} with the pages of the book
      */
-    public ArrayList<ColoredText> getPages() {
+    public ArrayList<JsonMessage> getPages() {
         return pages;
     }
 
     /**
-     * Set the {@link ArrayList} containing the book pages
+     * Sets the {@link ArrayList} containing the book pages.
      *
      * @param pages the array list containing the book pages
      */
-    public void setPages(ArrayList<ColoredText> pages) {
+    public void setPages(ArrayList<JsonMessage> pages) {
         this.pages = pages;
     }
 
@@ -118,7 +120,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     @Override
-    public boolean isSimilar(ItemMeta itemMeta) {
+    public boolean isSimilar(@NotNull ItemMeta itemMeta) {
         if (!(itemMeta instanceof WrittenBookMeta))
             return false;
         final WrittenBookMeta writtenBookMeta = (WrittenBookMeta) itemMeta;
@@ -130,7 +132,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     @Override
-    public void read(NBTCompound compound) {
+    public void read(@NotNull NBTCompound compound) {
         if (compound.containsKey("resolved")) {
             this.resolved = compound.getByte("resolved") == 1;
         }
@@ -154,7 +156,7 @@ public class WrittenBookMeta implements ItemMeta {
     }
 
     @Override
-    public void write(NBTCompound compound) {
+    public void write(@NotNull NBTCompound compound) {
         if (resolved) {
             compound.setByte("resolved", (byte) 1);
         }
@@ -169,13 +171,14 @@ public class WrittenBookMeta implements ItemMeta {
         }
         if (!pages.isEmpty()) {
             NBTList<NBTString> list = new NBTList<>(NBTTypes.TAG_String);
-            for (ColoredText page : pages) {
+            for (JsonMessage page : pages) {
                 list.add(new NBTString(page.toString()));
             }
             compound.set("pages", list);
         }
     }
 
+    @NotNull
     @Override
     public ItemMeta clone() {
         WrittenBookMeta writtenBookMeta = new WrittenBookMeta();

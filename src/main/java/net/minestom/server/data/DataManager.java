@@ -7,14 +7,25 @@ import net.minestom.server.inventory.Inventory;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.utils.PrimitiveConversion;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Manager used to register types which can be serialized and deserialized back.
+ * <p>
+ * Registering happens with {@link #registerType(Class, DataType)},
+ * you can then retrieve the {@link DataType} with {@link #getDataType(Class)}.
+ * <p>
+ * A lot of types are already registered by default so you do not have to add all of them manually,
+ * you can verify if {@link #getDataType(Class)} returns null for the desired type, if it is then you will need to register it.
+ */
 public final class DataManager {
 
-    private Map<Class, DataType> dataTypeMap = new HashMap<>();
+    private final Map<Class, DataType> dataTypeMap = new HashMap<>();
 
     {
         registerType(Byte.class, new ByteData());
@@ -55,14 +66,14 @@ public final class DataManager {
     }
 
     /**
-     * Register a new data type
+     * Registers a new data type.
      *
      * @param clazz    the data class
      * @param dataType the data type associated
      * @param <T>      the data type
      * @throws IllegalStateException if the type {@code clazz} is already registered
      */
-    public <T> void registerType(Class<T> clazz, DataType<T> dataType) {
+    public <T> void registerType(@NotNull Class<T> clazz, @NotNull DataType<T> dataType) {
         clazz = PrimitiveConversion.getObjectClass(clazz);
         Check.stateCondition(dataTypeMap.containsKey(clazz),
                 "Type " + clazz.getName() + " has already been registered");
@@ -71,14 +82,15 @@ public final class DataManager {
     }
 
     /**
-     * Get the data type associated with a class
+     * Gets the data type associated with a class.
      *
      * @param clazz the data class
      * @param <T>   the data type
      * @return the {@link DataType} associated to the class
      * @throws NullPointerException if none is found
      */
-    public <T> DataType<T> getDataType(Class<T> clazz) {
+    @Nullable
+    public <T> DataType<T> getDataType(@NotNull Class<T> clazz) {
         clazz = PrimitiveConversion.getObjectClass(clazz);
         return dataTypeMap.get(clazz);
     }

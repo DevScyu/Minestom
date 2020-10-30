@@ -1,9 +1,13 @@
 package net.minestom.server.timer;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import net.minestom.server.utils.time.TimeUnit;
 
 /**
- * A builder which represents a fluent Object to schedule tasks
+ * A builder which represents a fluent Object to schedule tasks.
+ * <p>
+ * You can specify a delay with {@link #delay(long, TimeUnit)} or {@link #repeat(long, TimeUnit)}
+ * and then schedule the {@link Task} with {@link #schedule()}.
  */
 public class TaskBuilder {
 
@@ -19,9 +23,9 @@ public class TaskBuilder {
     private long repeat;
 
     /**
-     * Creates a task builder
+     * Creates a task builder.
      * <br>
-     * <b>Note:</b> The task builder creates a normal task
+     * <b>Note:</b> The task builder creates a normal task.
      *
      * @param schedulerManager The manager for the tasks
      * @param runnable         The task to run when scheduled
@@ -31,7 +35,7 @@ public class TaskBuilder {
     }
 
     /**
-     * Creates task builder
+     * Creates a task builder.
      *
      * @param schedulerManager The manager for the tasks
      * @param runnable         The task to run when scheduled
@@ -44,7 +48,7 @@ public class TaskBuilder {
     }
 
     /**
-     * Specifies that the task should delay its execution by the specified amount of time.
+     * Specifies that the {@link Task} should delay its execution by the specified amount of time.
      *
      * @param time The time to delay
      * @param unit The unit of time for {@code time}
@@ -56,10 +60,10 @@ public class TaskBuilder {
     }
 
     /**
-     * Specifies that the task should continue to run after waiting for the specified value until it is terminated.
+     * Specifies that the {@link Task} should continue to run after waiting for the specified value until it is terminated.
      *
      * @param time The time until the repetition
-     * @param unit The unit of time for {@code time}
+     * @param unit The {@link TimeUnit} for {@code time}
      * @return this builder, for chaining
      */
     public TaskBuilder repeat(long time, TimeUnit unit) {
@@ -68,7 +72,7 @@ public class TaskBuilder {
     }
 
     /**
-     * Clears the delay interval of the task
+     * Clears the delay interval of the {@link Task}.
      *
      * @return this builder, for chaining
      */
@@ -78,7 +82,7 @@ public class TaskBuilder {
     }
 
     /**
-     * Clears the repeat interval of the task
+     * Clears the repeat interval of the {@link Task}.
      *
      * @return this builder, for chaining
      */
@@ -88,9 +92,9 @@ public class TaskBuilder {
     }
 
     /**
-     * Schedule this task for execution
+     * Schedule this {@link Task} for execution.
      *
-     * @return the built task
+     * @return the built {@link Task}
      */
     public Task schedule() {
         Task task = new Task(
@@ -100,9 +104,15 @@ public class TaskBuilder {
                 this.delay,
                 this.repeat);
         if (this.shutdown) {
-            this.schedulerManager.getShutdownTasks().add(task);
+            Int2ObjectMap<Task> shutdownTasks = this.schedulerManager.shutdownTasks;
+            synchronized (shutdownTasks) {
+                shutdownTasks.put(task.getId(), task);
+            }
         } else {
-            this.schedulerManager.getTasks().add(task);
+            Int2ObjectMap<Task> tasks = this.schedulerManager.tasks;
+            synchronized (tasks) {
+                tasks.put(task.getId(), task);
+            }
             task.schedule();
         }
         return task;

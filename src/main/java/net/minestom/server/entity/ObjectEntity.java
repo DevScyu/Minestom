@@ -3,16 +3,17 @@ package net.minestom.server.entity;
 import net.minestom.server.network.packet.server.play.SpawnEntityPacket;
 import net.minestom.server.network.player.PlayerConnection;
 import net.minestom.server.utils.Position;
+import org.jetbrains.annotations.NotNull;
 
 public abstract class ObjectEntity extends Entity {
 
-    public ObjectEntity(EntityType entityType, Position spawnPosition) {
+    public ObjectEntity(@NotNull EntityType entityType, @NotNull Position spawnPosition) {
         super(entityType, spawnPosition);
         setGravity(0.02f);
     }
 
     /**
-     * Get the data of this object entity
+     * Gets the data of this object entity.
      *
      * @return an object data
      * @see <a href="https://wiki.vg/Object_Data">here</a>
@@ -30,7 +31,7 @@ public abstract class ObjectEntity extends Entity {
     }
 
     @Override
-    public boolean addViewer(Player player) {
+    public boolean addViewer(@NotNull Player player) {
         final boolean result = super.addViewer(player);
         if (!result)
             return false;

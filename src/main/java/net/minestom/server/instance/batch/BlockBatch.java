@@ -2,6 +2,7 @@ package net.minestom.server.instance.batch;
 
 import net.minestom.server.data.Data;
 import net.minestom.server.instance.Chunk;
+import net.minestom.server.instance.Instance;
 import net.minestom.server.instance.InstanceContainer;
 import net.minestom.server.instance.block.CustomBlock;
 import net.minestom.server.utils.block.CustomBlockUtils;
@@ -12,9 +13,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Used when the blocks you want to place need to be divided in multiple chunks,
+ * use a {@link ChunkBatch} instead otherwise.
+ * Can be created using {@link Instance#createBlockBatch()}.
+ *
+ * @see InstanceBatch
+ */
 public class BlockBatch implements InstanceBatch {
 
-    private InstanceContainer instance;
+    private final InstanceContainer instance;
 
     private final Map<Chunk, List<BlockData>> data = new HashMap<>();
 
@@ -82,9 +90,7 @@ public class BlockBatch implements InstanceBatch {
                         // Execute the callback if this was the last chunk to process
                         if (isLast) {
                             if (callback != null) {
-                                instance.scheduleNextTick(inst -> {
-                                    callback.run();
-                                });
+                                instance.scheduleNextTick(inst -> callback.run());
                             }
                         }
 

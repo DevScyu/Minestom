@@ -3,6 +3,7 @@ package net.minestom.server.network.packet.server.play;
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.ServerPacketIdentifier;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 public class WorldBorderPacket implements ServerPacket {
 
@@ -10,7 +11,7 @@ public class WorldBorderPacket implements ServerPacket {
     public WBAction wbAction;
 
     @Override
-    public void write(BinaryWriter writer) {
+    public void write(@NotNull BinaryWriter writer) {
         writer.writeVarInt(action.ordinal());
         wbAction.write(writer);
     }
@@ -35,7 +36,7 @@ public class WorldBorderPacket implements ServerPacket {
 
     public static class WBSetSize extends WBAction {
 
-        public double diameter;
+        public final double diameter;
 
         public WBSetSize(double diameter) {
             this.diameter = diameter;
@@ -49,9 +50,9 @@ public class WorldBorderPacket implements ServerPacket {
 
     public static class WBLerpSize extends WBAction {
 
-        public double oldDiameter;
-        public double newDiameter;
-        public long speed;
+        public final double oldDiameter;
+        public final double newDiameter;
+        public final long speed;
 
         public WBLerpSize(double oldDiameter, double newDiameter, long speed) {
             this.oldDiameter = oldDiameter;
@@ -69,7 +70,7 @@ public class WorldBorderPacket implements ServerPacket {
 
     public static class WBSetCenter extends WBAction {
 
-        public double x, z;
+        public final double x, z;
 
         public WBSetCenter(double x, double z) {
             this.x = x;
@@ -85,13 +86,13 @@ public class WorldBorderPacket implements ServerPacket {
 
     public static class WBInitialize extends WBAction {
 
-        public double x, z;
-        public double oldDiameter;
-        public double newDiameter;
-        public long speed;
-        public int portalTeleportBoundary;
-        public int warningTime;
-        public int warningBlocks;
+        public final double x, z;
+        public final double oldDiameter;
+        public final double newDiameter;
+        public final long speed;
+        public final int portalTeleportBoundary;
+        public final int warningTime;
+        public final int warningBlocks;
 
         public WBInitialize(double x, double z, double oldDiameter, double newDiameter, long speed,
                             int portalTeleportBoundary, int warningTime, int warningBlocks) {
@@ -120,7 +121,7 @@ public class WorldBorderPacket implements ServerPacket {
 
     public static class WBSetWarningTime extends WBAction {
 
-        public int warningTime;
+        public final int warningTime;
 
         public WBSetWarningTime(int warningTime) {
             this.warningTime = warningTime;
@@ -134,7 +135,7 @@ public class WorldBorderPacket implements ServerPacket {
 
     public static class WBSetWarningBlocks extends WBAction {
 
-        public int warningBlocks;
+        public final int warningBlocks;
 
         public WBSetWarningBlocks(int warningBlocks) {
             this.warningBlocks = warningBlocks;

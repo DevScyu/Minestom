@@ -5,20 +5,32 @@ import net.minestom.server.data.Data;
 import net.minestom.server.instance.block.BlockProvider;
 import net.minestom.server.network.packet.server.play.ChunkDataPacket;
 import net.minestom.server.utils.binary.BinaryReader;
+import net.minestom.server.utils.callback.OptionalCallback;
 import net.minestom.server.utils.chunk.ChunkCallback;
 import net.minestom.server.utils.chunk.ChunkUtils;
 import net.minestom.server.world.biomes.Biome;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Represents a {@link Chunk} which does not store any block, it makes use of a {@link BlockProvider}
+ * instead to use less memory.
+ * <p>
+ * Can be used for very simple chunks such as flat or others with not any random factor.
+ * <p>
+ * WARNING: adding blocks or anything to this chunk would not work, it is static.
+ */
 public class StaticChunk extends Chunk {
 
     protected final BlockProvider blockProvider;
 
     public StaticChunk(Instance instance, Biome[] biomes, int chunkX, int chunkZ, BlockProvider blockProvider) {
-        super(instance, biomes, chunkX, chunkZ);
+        super(instance, biomes, chunkX, chunkZ, false);
         this.blockProvider = blockProvider;
+        setReadOnly(true);
     }
 
     @Override
@@ -27,7 +39,7 @@ public class StaticChunk extends Chunk {
     }
 
     @Override
-    public void tick(long time, Instance instance) {
+    public void tick(long time, @NotNull Instance instance) {
         //noop
     }
 
@@ -62,6 +74,7 @@ public class StaticChunk extends Chunk {
         //noop
     }
 
+    @NotNull
     @Override
     public Set<Integer> getBlockEntities() {
         return new HashSet<>();
@@ -73,12 +86,13 @@ public class StaticChunk extends Chunk {
     }
 
     @Override
-    public void readChunk(BinaryReader reader, ChunkCallback callback) {
-        callback.accept(this);
+    public void readChunk(@NotNull BinaryReader reader, @Nullable ChunkCallback callback) {
+        OptionalCallback.execute(callback, this);
     }
 
+    @NotNull
     @Override
-    protected ChunkDataPacket getFreshPacket() {
+    protected ChunkDataPacket createFreshPacket() {
         ChunkDataPacket fullDataPacket = new ChunkDataPacket();
         fullDataPacket.biomes = biomes.clone();
         fullDataPacket.chunkX = chunkX;

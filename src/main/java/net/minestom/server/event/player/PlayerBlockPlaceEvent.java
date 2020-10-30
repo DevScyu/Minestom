@@ -6,9 +6,10 @@ import net.minestom.server.event.CancellableEvent;
 import net.minestom.server.instance.block.BlockManager;
 import net.minestom.server.instance.block.CustomBlock;
 import net.minestom.server.utils.BlockPosition;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Called when a player tries placing a block
+ * Called when a player tries placing a block.
  */
 public class PlayerBlockPlaceEvent extends CancellableEvent {
 
@@ -17,12 +18,13 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     private final Player player;
     private short blockStateId;
     private short customBlockId;
-    private BlockPosition blockPosition;
-    private Player.Hand hand;
+    private final BlockPosition blockPosition;
+    private final Player.Hand hand;
 
     private boolean consumeBlock;
 
-    public PlayerBlockPlaceEvent(Player player, short blockStateId, short customBlockId, BlockPosition blockPosition, Player.Hand hand) {
+    public PlayerBlockPlaceEvent(@NotNull Player player, short blockStateId, short customBlockId,
+                                 @NotNull BlockPosition blockPosition, @NotNull Player.Hand hand) {
         this.player = player;
         this.blockStateId = blockStateId;
         this.customBlockId = customBlockId;
@@ -32,17 +34,17 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Set both the blockId and customBlockId
+     * Sets both the blockId and customBlockId.
      *
      * @param customBlock the custom block to place
      */
-    public void setCustomBlock(CustomBlock customBlock) {
+    public void setCustomBlock(@NotNull CustomBlock customBlock) {
         setBlockStateId(customBlock.getDefaultBlockStateId());
         setCustomBlockId(customBlock.getCustomBlockId());
     }
 
     /**
-     * Set both the blockStateId and customBlockId
+     * Sets both the blockStateId and customBlockId.
      *
      * @param customBlockId the custom block id to place
      */
@@ -52,17 +54,17 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Set both the blockId and customBlockId
+     * Sets both the blockId and customBlockId.
      *
      * @param customBlockId the custom block id to place
      */
-    public void setCustomBlock(String customBlockId) {
+    public void setCustomBlock(@NotNull String customBlockId) {
         final CustomBlock customBlock = BLOCK_MANAGER.getCustomBlock(customBlockId);
         setCustomBlock(customBlock);
     }
 
     /**
-     * Get the custom block id
+     * Gets the custom block id.
      *
      * @return the custom block id
      */
@@ -71,10 +73,10 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Set the custom block id to place
+     * Sets the custom block id to place.
      * <p>
      * WARNING: this does not change the visual block id, see {@link #setBlockStateId(short)}
-     * or {@link #setCustomBlock(short)}
+     * or {@link #setCustomBlock(short)}.
      *
      * @param customBlockId the custom block id
      */
@@ -83,7 +85,7 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Get the block state id
+     * Gets the block state id.
      *
      * @return the block state id
      */
@@ -92,7 +94,7 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Change the visual block id
+     * Changes the visual block id.
      *
      * @param blockStateId the new block state id
      */
@@ -101,34 +103,37 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Get the player who is placing the block
+     * Gets the player who is placing the block.
      *
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Get the block position
+     * Gets the block position.
      *
      * @return the block position
      */
+    @NotNull
     public BlockPosition getBlockPosition() {
         return blockPosition;
     }
 
     /**
-     * Get the hand with which the player is trying to place
+     * Gets the hand with which the player is trying to place.
      *
      * @return the hand used
      */
+    @NotNull
     public Player.Hand getHand() {
         return hand;
     }
 
     /**
-     * Should the block be consumed if not cancelled
+     * Should the block be consumed if not cancelled.
      *
      * @param consumeBlock true if the block should be consumer (-1 amount), false otherwise
      */
@@ -137,7 +142,7 @@ public class PlayerBlockPlaceEvent extends CancellableEvent {
     }
 
     /**
-     * Should the block be consumed if not cancelled
+     * Should the block be consumed if not cancelled.
      *
      * @return true if the block will be consumed, false otherwise
      */

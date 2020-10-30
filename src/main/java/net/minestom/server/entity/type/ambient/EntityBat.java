@@ -5,6 +5,7 @@ import net.minestom.server.entity.EntityType;
 import net.minestom.server.entity.type.Animal;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
 
@@ -17,6 +18,7 @@ public class EntityBat extends EntityCreature implements Animal {
         setBoundingBox(0.5f, 0.9f, 0.5f);
     }
 
+    @NotNull
     @Override
     public Consumer<BinaryWriter> getMetadataConsumer() {
         return packet -> {
@@ -26,7 +28,7 @@ public class EntityBat extends EntityCreature implements Animal {
     }
 
     @Override
-    protected void fillMetadataIndex(BinaryWriter packet, int index) {
+    protected void fillMetadataIndex(@NotNull BinaryWriter packet, int index) {
         super.fillMetadataIndex(packet, index);
         if (index == 15) {
             packet.writeByte((byte) 15);
@@ -36,7 +38,7 @@ public class EntityBat extends EntityCreature implements Animal {
     }
 
     /**
-     * Get if the bat is hanging
+     * Gets if the bat is hanging.
      *
      * @return true if the bat is hanging, false otherwise
      */
@@ -45,7 +47,7 @@ public class EntityBat extends EntityCreature implements Animal {
     }
 
     /**
-     * Make the bat hanging or cancel
+     * Makes the bat hanging or cancel.
      *
      * @param hanging true to make the bat hanging, false otherwise
      */

@@ -1,75 +1,109 @@
 package net.minestom.server.chat;
 
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Class used to convert JSON string to proper chat message representation
+ * Class used to convert JSON string to proper chat message representation.
  */
-public class ChatParser {
+public final class ChatParser {
 
     public static final char COLOR_CHAR = (char) 0xA7; // Represent the character '§'
 
     /**
-     * Convert a simple colored message json (text/color) to a {@link ColoredText}
+     * Converts a simple colored message json (text/color) to a {@link ColoredText}.
      *
      * @param json the json containing the text and color
      * @return a {@link ColoredText} representing the text
      */
-    public static ColoredText toColoredText(String json) {
+    @NotNull
+    public static ColoredText toColoredText(@NotNull String json) {
         StringBuilder builder = new StringBuilder();
 
-        final JsonObject object = JsonParser.parseString(json).getAsJsonObject();
+        try {
+            final JsonElement element = JsonParser.parseString(json);
 
+            if (element instanceof JsonObject) {
+                final JsonObject object = element.getAsJsonObject();
+                appendBuilder(builder, object);
+            } else if (element instanceof JsonArray) {
+                final JsonArray array = element.getAsJsonArray();
+                for (JsonElement e : array) {
+                    final JsonObject object = e.getAsJsonObject();
+                    appendBuilder(builder, object);
+                }
+            }
+
+            return ColoredText.of(builder.toString());
+        } catch (JsonSyntaxException e) {
+            // Not a json text
+            return ColoredText.of(json);
+        }
+    }
+
+    private static void appendBuilder(@NotNull StringBuilder builder, @NotNull JsonObject object) {
         builder.append(parseText(object));
 
         final boolean hasExtra = object.has("extra");
         if (hasExtra) {
-            JsonArray extraArray = object.get("extra").getAsJsonArray();
-            for (JsonElement element : extraArray) {
-                JsonObject extraObject = element.getAsJsonObject();
+            final JsonArray extraArray = object.get("extra").getAsJsonArray();
+            for (JsonElement extraElement : extraArray) {
+                final JsonObject extraObject = extraElement.getAsJsonObject();
                 builder.append(parseText(extraObject));
             }
         }
-
-        return ColoredText.of(builder.toString());
     }
 
     /**
-     * Get the format representing of a single text component (text + color key)
+     * Gets the format representing of a single text component (text + color key).
      *
      * @param textObject the text component to parse
      * @return the colored text format of the text component
      */
-    private static String parseText(JsonObject textObject) {
+    @NotNull
+    private static String parseText(@NotNull JsonObject textObject) {
         final boolean hasText = textObject.has("text");
         if (!hasText)
             return "";
 
-        final boolean hasColor = textObject.has("color");
-
         StringBuilder builder = new StringBuilder();
 
-        // Add color
-        if (hasColor) {
-            String colorString = textObject.get("color").getAsString();
+        appendColor(textObject, builder);
+        appendExtra(textObject, builder, "bold");
+        appendExtra(textObject, builder, "italic");
+        appendExtra(textObject, builder, "underlined");
+        appendExtra(textObject, builder, "strikethrough");
+        appendExtra(textObject, builder, "obfuscated");
+
+        // Add text
+        final String text = textObject.get("text").getAsString();
+        builder.append(text);
+
+        return builder.toString();
+    }
+
+    private static void appendColor(@NotNull JsonObject textObject, @NotNull StringBuilder builder) {
+        if (textObject.has("color")) {
+            final String colorString = textObject.get("color").getAsString();
             if (colorString.startsWith("#")) {
                 // RGB format
                 builder.append("{").append(colorString).append("}");
             } else {
                 // Color simple name
-                ChatColor color = ChatColor.fromName(colorString);
+                final ChatColor color = ChatColor.fromName(colorString);
                 builder.append(color);
             }
         }
+    }
 
-        // Add text
-        String text = textObject.get("text").getAsString();
-        builder.append(text);
-
-        return builder.toString();
+    private static void appendExtra(@NotNull JsonObject textObject, @NotNull StringBuilder builder,
+                                    @NotNull String name) {
+        if (textObject.has(name)) {
+            final boolean value = textObject.get(name).getAsBoolean();
+            if (value) {
+                builder.append("{#").append(name).append("}");
+            }
+        }
     }
 }

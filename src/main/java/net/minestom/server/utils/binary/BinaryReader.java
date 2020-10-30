@@ -1,7 +1,10 @@
 package net.minestom.server.utils.binary;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import net.minestom.server.chat.JsonMessage;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.NBTUtils;
@@ -16,8 +19,9 @@ import java.io.InputStream;
 import java.util.UUID;
 
 /**
- * Class used to read from a byte array
- * WARNING: not thread-safe
+ * Class used to read from a byte array.
+ * <p>
+ * WARNING: not thread-safe.
  */
 public class BinaryReader extends InputStream {
 
@@ -92,6 +96,24 @@ public class BinaryReader extends InputStream {
         return bytes;
     }
 
+    public String[] readSizedStringArray() {
+        final int size = readVarInt();
+        String[] strings = new String[size];
+        for (int i = 0; i < size; i++) {
+            strings[i] = readSizedString();
+        }
+        return strings;
+    }
+
+    public int[] readVarIntArray() {
+        final int size = readVarInt();
+        int[] array = new int[size];
+        for (int i = 0; i < size; i++) {
+            array[i] = readVarInt();
+        }
+        return array;
+    }
+
     public byte[] getRemainingBytes() {
         return readBytes(buffer.readableBytes());
     }
@@ -109,6 +131,12 @@ public class BinaryReader extends InputStream {
 
     public ItemStack readSlot() {
         return NBTUtils.readItemStack(this);
+    }
+
+    public JsonMessage readJsonMessage() {
+        final String string = readSizedString();
+        final JsonObject jsonObject = JsonParser.parseString(string).getAsJsonObject();
+        return new JsonMessage.RawJsonMessage(jsonObject);
     }
 
     public ByteBuf getBuffer() {

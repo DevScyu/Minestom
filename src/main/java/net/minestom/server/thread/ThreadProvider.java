@@ -17,13 +17,13 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Used to link chunks into multiple groups
- * Then executed into a thread pool
+ * Used to link chunks into multiple groups.
+ * Then executed into a thread pool.
  */
 public abstract class ThreadProvider {
 
     /**
-     * The thread pool of this thread provider
+     * The thread pool of this thread provider.
      */
     protected ExecutorService pool;
     /**
@@ -37,7 +37,21 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Called when a chunk is loaded
+     * Called when an {@link Instance} is created.
+     *
+     * @param instance the newly create {@link Instance}
+     */
+    public abstract void onInstanceCreate(Instance instance);
+
+    /**
+     * Called when an {@link Instance} is deleted.
+     *
+     * @param instance the deleted {@link Instance}
+     */
+    public abstract void onInstanceDelete(Instance instance);
+
+    /**
+     * Called when a chunk is loaded.
      *
      * @param instance the instance of the chunk
      * @param chunkX   the chunk X
@@ -46,7 +60,7 @@ public abstract class ThreadProvider {
     public abstract void onChunkLoad(Instance instance, int chunkX, int chunkZ);
 
     /**
-     * Called when a chunk is unloaded
+     * Called when a chunk is unloaded.
      *
      * @param instance the instance of the chunk
      * @param chunkX   the chunk X
@@ -55,7 +69,7 @@ public abstract class ThreadProvider {
     public abstract void onChunkUnload(Instance instance, int chunkX, int chunkZ);
 
     /**
-     * Perform a server tick for all chunks based on their linked thread
+     * Performs a server tick for all chunks based on their linked thread.
      *
      * @param time the update time in milliseconds
      * @return the futures to execute to complete the tick
@@ -63,7 +77,7 @@ public abstract class ThreadProvider {
     public abstract List<Future<?>> update(long time);
 
     /**
-     * Get the current size of the thread pool
+     * Gets the current size of the thread pool.
      *
      * @return the thread pool's size
      */
@@ -72,7 +86,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Change the amount of threads in the thread pool
+     * Changes the amount of threads in the thread pool.
      *
      * @param threadCount the new amount of threads
      */
@@ -85,12 +99,10 @@ public abstract class ThreadProvider {
         this.pool = new MinestomThread(threadCount, MinecraftServer.THREAD_NAME_TICK);
     }
 
-    /**
-     * INSTANCE UPDATE
-     */
+    // INSTANCE UPDATE
 
     /**
-     * Process a whole tick for a chunk
+     * Process a whole tick for a chunk.
      *
      * @param instance   the instance of the chunk
      * @param chunkIndex the index of the chunk {@link ChunkUtils#getChunkIndex(int, int)}
@@ -110,7 +122,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute an instance tick
+     * Executes an instance tick.
      *
      * @param instance the instance
      * @param time     the current time in ms
@@ -122,7 +134,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute a chunk tick (blocks update)
+     * Executes a chunk tick (blocks update).
      *
      * @param instance the chunk's instance
      * @param chunk    the chunk
@@ -132,12 +144,10 @@ public abstract class ThreadProvider {
         chunk.tick(time, instance);
     }
 
-    /**
-     * ENTITY UPDATE
-     */
+    // ENTITY UPDATE
 
     /**
-     * Execute an entity tick (all entities type creatures/objects/players) in an instance's chunk
+     * Executes an entity tick (all entities type creatures/objects/players) in an instance's chunk.
      *
      * @param instance the chunk's instance
      * @param chunk    the chunk
@@ -148,7 +158,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute an entity tick for object entities in an instance's chunk
+     * Executes an entity tick for object entities in an instance's chunk.
      *
      * @param instance the chunk's instance
      * @param chunk    the chunk
@@ -159,7 +169,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute an entity tick for living entities in an instance's chunk
+     * Executes an entity tick for living entities in an instance's chunk.
      *
      * @param instance the chunk's instance
      * @param chunk    the chunk
@@ -170,7 +180,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute an entity tick for creatures entities in an instance's chunk
+     * Executes an entity tick for creatures entities in an instance's chunk.
      *
      * @param instance the chunk's instance
      * @param chunk    the chunk
@@ -181,7 +191,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute an entity tick for players in an instance's chunk
+     * Executes an entity tick for players in an instance's chunk.
      *
      * @param instance the chunk's instance
      * @param chunk    the chunk
@@ -192,7 +202,7 @@ public abstract class ThreadProvider {
     }
 
     /**
-     * Execute an entity tick in an instance's chunk if condition is verified
+     * Executes an entity tick in an instance's chunk if condition is verified.
      *
      * @param instance  the chunk's instance
      * @param chunk     the chunk
@@ -215,7 +225,7 @@ public abstract class ThreadProvider {
 
     /**
      * If {@code instance} is an {@link InstanceContainer}, run a callback for all of its
-     * {@link SharedInstance}
+     * {@link SharedInstance}.
      *
      * @param instance the instance
      * @param callback the callback to run for all the {@link SharedInstance}

@@ -30,6 +30,18 @@ public class PerGroupChunkProvider extends ThreadProvider {
     private final Map<Instance, Map<LongSet, Instance>> instanceInstanceMap = new ConcurrentHashMap<>();
 
     @Override
+    public void onInstanceCreate(Instance instance) {
+        this.instanceChunksGroupMap.put(instance, new Long2ObjectOpenHashMap<>());
+        this.instanceInstanceMap.put(instance, new HashMap<>());
+    }
+
+    @Override
+    public void onInstanceDelete(Instance instance) {
+        this.instanceChunksGroupMap.remove(instance);
+        this.instanceInstanceMap.remove(instance);
+    }
+
+    @Override
     public void onChunkLoad(Instance instance, int chunkX, int chunkZ) {
         final long loadedChunkIndex = ChunkUtils.getChunkIndex(chunkX, chunkZ);
 
@@ -63,7 +75,7 @@ public class PerGroupChunkProvider extends ThreadProvider {
         }
 
         // The size of the final list, used as the initial capacity
-        final int size = neighboursGroups.stream().mapToInt(value -> value.size()).sum() + 1;
+        final int size = neighboursGroups.stream().mapToInt(Set::size).sum() + 1;
 
         // Represent the merged group of all the neighbours
         LongSet finalGroup = new LongArraySet(size);
@@ -106,49 +118,42 @@ public class PerGroupChunkProvider extends ThreadProvider {
 
     @Override
     public List<Future<?>> update(long time) {
-        // Set of already-updated instances this tick
-        final Set<Instance> updatedInstance = new HashSet<>();
-
         List<Future<?>> futures = new ArrayList<>();
 
         instanceInstanceMap.forEach((instance, instanceMap) -> {
 
-            // True if the instance ended its tick call¬
+            // True if the instance ended its tick call
             final CountDownLatch countDownLatch = new CountDownLatch(1);
 
-            // Update all the chunks + instances
-            instanceMap.keySet().forEach(chunksIndexes -> {
+            // instance tick
+            futures.add(pool.submit(() -> {
+                updateInstance(instance, time);
+                countDownLatch.countDown();
+            }));
 
-                final boolean shouldUpdateInstance = updatedInstance.add(instance);
-                futures.add(pool.submit(() -> {
-                    // Used to check if the instance has already been updated this tick
-                    if (shouldUpdateInstance) {
-                        updateInstance(instance, time);
-                        countDownLatch.countDown();
-                    }
+            // Update all the chunks
+            instanceMap.keySet().forEach(chunksIndexes -> futures.add(pool.submit(() -> {
+                // Wait for the instance to be updated
+                // Needed because the instance tick is used to unload waiting chunks
+                try {
+                    countDownLatch.await();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
 
-                    // Wait for the instance to be updated
-                    // Needed because the instance tick is used to unload waiting chunks
-                    try {
-                        countDownLatch.await();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-
-                    // Tick all this chunk group
-                    chunksIndexes.forEach((long chunkIndex) -> processChunkTick(instance, chunkIndex, time));
-                }));
-            });
+                // Tick all this chunk group
+                chunksIndexes.forEach((long chunkIndex) -> processChunkTick(instance, chunkIndex, time));
+            })));
         });
         return futures;
     }
 
     private Long2ObjectMap<LongSet> getChunksGroupMap(Instance instance) {
-        return instanceChunksGroupMap.computeIfAbsent(instance, inst -> new Long2ObjectOpenHashMap<>());
+        return instanceChunksGroupMap.get(instance);
     }
 
     private Map<LongSet, Instance> getInstanceMap(Instance instance) {
-        return instanceInstanceMap.computeIfAbsent(instance, inst -> new HashMap<>());
+        return instanceInstanceMap.get(instance);
     }
 
 }

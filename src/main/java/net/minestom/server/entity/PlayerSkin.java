@@ -5,11 +5,16 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.minestom.server.utils.url.URLUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 
 /**
- * Contains all the data required to store a skin
+ * Contains all the data required to store a skin.
+ * <p>
+ * Can be applied to a player with {@link Player#setSkin(PlayerSkin)}
+ * or in the linked event {@link net.minestom.server.event.player.PlayerSkinInitEvent}.
  */
 public class PlayerSkin {
 
@@ -22,7 +27,7 @@ public class PlayerSkin {
     }
 
     /**
-     * Get the skin textures value
+     * Gets the skin textures value.
      *
      * @return the textures value
      */
@@ -31,7 +36,7 @@ public class PlayerSkin {
     }
 
     /**
-     * Get the skin signature
+     * Gets the skin signature.
      *
      * @return the skin signature
      */
@@ -40,12 +45,13 @@ public class PlayerSkin {
     }
 
     /**
-     * Get a skin from a Mojang UUID
+     * Gets a skin from a Mojang UUID.
      *
      * @param uuid Mojang UUID
      * @return a player skin based on the UUID, null if not found
      */
-    public static PlayerSkin fromUuid(String uuid) {
+    @Nullable
+    public static PlayerSkin fromUuid(@NotNull String uuid) {
         final String url = "https://sessionserver.mojang.com/session/minecraft/profile/" + uuid + "?unsigned=false";
 
         try {
@@ -70,12 +76,13 @@ public class PlayerSkin {
     }
 
     /**
-     * Get a skin from a Minecraft username
+     * Gets a skin from a Minecraft username.
      *
      * @param username the Minecraft username
      * @return a skin based on a Minecraft username, null if not found
      */
-    public static PlayerSkin fromUsername(String username) {
+    @Nullable
+    public static PlayerSkin fromUsername(@NotNull String username) {
         final String url = "https://api.mojang.com/users/profiles/minecraft/" + username;
 
         try {

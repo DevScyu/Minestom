@@ -3,6 +3,8 @@ package net.minestom.server.chat;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,23 +12,33 @@ import java.util.List;
 // TODO format retention
 
 /**
- * Represent multiple {@link ColoredText} batched together with the possibility to add
- * click and hover events
+ * Represents multiple {@link ColoredText} batched together with the possibility to add
+ * click and hover events.
  * <p>
- * Used when the message can contain both colored text and event (otherwise, use {@link ColoredText})
+ * Used when the message can contain both colored text and event (otherwise, use {@link ColoredText}).
+ * <p>
+ * You will need to call the static method to initialize the message {@link #of(ColoredText)},
+ * events can be assigned with {@link #setClickEvent(ChatClickEvent)} and {@link #setHoverEvent(ChatHoverEvent)}
+ * and new text element can also be appended {@link #append(ColoredText)}.
  */
 public class RichMessage extends JsonMessage {
 
-    private List<RichComponent> components = new ArrayList<>();
+    private final List<RichComponent> components = new ArrayList<>();
     private RichComponent currentComponent;
 
     /**
-     * Create a RichMessage by adding the first rich component
+     * @see #of(ColoredText) to create a rich message
+     */
+    private RichMessage() {
+    }
+
+    /**
+     * Creates a {@link RichMessage} by adding the first rich component.
      *
      * @param coloredText the text composing the first rich component
      * @return the created rich message object
      */
-    public static RichMessage of(ColoredText coloredText) {
+    public static RichMessage of(@NotNull ColoredText coloredText) {
         Check.notNull(coloredText, "ColoredText cannot be null");
 
         RichMessage richMessage = new RichMessage();
@@ -35,59 +47,54 @@ public class RichMessage extends JsonMessage {
         return richMessage;
     }
 
-    private static void appendText(RichMessage richMessage, ColoredText coloredText, FormatRetention formatRetention) {
+    private static void appendText(@NotNull RichMessage richMessage, @NotNull ColoredText coloredText,
+                                   @NotNull FormatRetention formatRetention) {
         RichComponent component = new RichComponent(coloredText, formatRetention);
         richMessage.components.add(component);
         richMessage.currentComponent = component;
     }
 
     /**
-     * Set the click event of the current rich component
+     * Sets the click event of the current rich component.
      *
      * @param clickEvent the click event to set
      * @return the rich message
      */
-    public RichMessage setClickEvent(ChatClickEvent clickEvent) {
-        Check.notNull(clickEvent, "ChatClickEvent cannot be null");
-
+    public RichMessage setClickEvent(@Nullable ChatClickEvent clickEvent) {
         currentComponent.setClickEvent(clickEvent);
         return this;
     }
 
     /**
-     * Set the hover event of the current rich component
+     * Sets the hover event of the current rich component.
      *
      * @param hoverEvent the hover event to set
      * @return the rich message
      */
-    public RichMessage setHoverEvent(ChatHoverEvent hoverEvent) {
-        Check.notNull(hoverEvent, "ChatHoverEvent cannot be null");
-
+    public RichMessage setHoverEvent(@Nullable ChatHoverEvent hoverEvent) {
         currentComponent.setHoverEvent(hoverEvent);
         return this;
     }
 
     /**
-     * Set the insertion string of the current rich component
+     * Sets the insertion string of the current rich component.
      *
      * @param insertion the string to insert in the chat box
      * @return the rich message
      */
-    public RichMessage setInsertion(String insertion) {
-        Check.notNull(insertion, "the insertion cannot be null");
-
+    public RichMessage setInsertion(@Nullable String insertion) {
         currentComponent.setInsertion(insertion);
         return this;
     }
 
     /**
-     * Add a new rich component to the message
+     * Adds a new rich component to the message.
      *
      * @param coloredText     the text composing the rich component
      * @param formatRetention the format retention of the added component
      * @return the rich message
      */
-    public RichMessage append(ColoredText coloredText, FormatRetention formatRetention) {
+    public RichMessage append(@NotNull ColoredText coloredText, @NotNull FormatRetention formatRetention) {
         Check.notNull(coloredText, "ColoredText cannot be null");
 
         appendText(this, coloredText, formatRetention);
@@ -95,16 +102,17 @@ public class RichMessage extends JsonMessage {
     }
 
     /**
-     * Add a new rich component to the message,
-     * the format retention is set to {@link FormatRetention#ALL}
+     * Adds a new rich component to the message,
+     * the format retention is set to {@link FormatRetention#ALL}.
      *
      * @param coloredText the text composing the rich component
      * @return the rich message
      */
-    public RichMessage append(ColoredText coloredText) {
+    public RichMessage append(@NotNull ColoredText coloredText) {
         return append(coloredText, FormatRetention.ALL);
     }
 
+    @NotNull
     @Override
     public JsonObject getJsonObject() {
         List<RichComponent> cacheComponents = new ArrayList<>(components);
@@ -139,12 +147,12 @@ public class RichMessage extends JsonMessage {
     }
 
     /**
-     * Process the components to add click/hover events
+     * Processes the components to add click/hover events.
      *
      * @param component the rich component to process
      * @return a list of processed components
      */
-    private List<JsonObject> getComponentObject(RichComponent component) {
+    private List<JsonObject> getComponentObject(@NotNull RichComponent component) {
         final ColoredText coloredText = component.getText();
         final List<JsonObject> componentObjects = coloredText.getComponents();
 
@@ -175,7 +183,9 @@ public class RichMessage extends JsonMessage {
                     hoverObject.add("value", hoverEvent.getValueObject());
                 } else {
                     // The value is a raw string
-                    hoverObject = getEventObject(hoverEvent.getAction(), hoverEvent.getValue());
+                    final String hoverValue = hoverEvent.getValue();
+                    Check.notNull(hoverValue, "The hover value cannot be null");
+                    hoverObject = getEventObject(hoverEvent.getAction(), hoverValue);
                 }
                 componentObject.add("hoverEvent", hoverObject);
             }
@@ -188,7 +198,7 @@ public class RichMessage extends JsonMessage {
         return componentObjects;
     }
 
-    private JsonObject getEventObject(String action, String value) {
+    private JsonObject getEventObject(@NotNull String action, @NotNull String value) {
         JsonObject eventObject = new JsonObject();
         eventObject.addProperty("action", action);
         eventObject.addProperty("value", value);
@@ -200,34 +210,37 @@ public class RichMessage extends JsonMessage {
     }
 
     /**
-     * Represent a colored text with a click and hover event (can be null)
+     * Represents a {@link ColoredText} with a click and hover event (can be null).
      */
     private static class RichComponent {
 
-        private ColoredText text;
-        private FormatRetention formatRetention;
+        private final ColoredText text;
+        private final FormatRetention formatRetention;
         private ChatClickEvent clickEvent;
         private ChatHoverEvent hoverEvent;
         private String insertion;
 
-        private RichComponent(ColoredText text, FormatRetention formatRetention) {
+        private RichComponent(@NotNull ColoredText text, @NotNull FormatRetention formatRetention) {
             this.text = text;
             this.formatRetention = formatRetention;
         }
 
+        @NotNull
         public ColoredText getText() {
             return text;
         }
 
+        @NotNull
         public FormatRetention getFormatRetention() {
             return formatRetention;
         }
 
+        @Nullable
         public ChatClickEvent getClickEvent() {
             return clickEvent;
         }
 
-        public void setClickEvent(ChatClickEvent clickEvent) {
+        public void setClickEvent(@Nullable ChatClickEvent clickEvent) {
             this.clickEvent = clickEvent;
         }
 
@@ -235,15 +248,16 @@ public class RichMessage extends JsonMessage {
             return hoverEvent;
         }
 
-        public void setHoverEvent(ChatHoverEvent hoverEvent) {
+        public void setHoverEvent(@Nullable ChatHoverEvent hoverEvent) {
             this.hoverEvent = hoverEvent;
         }
 
+        @Nullable
         public String getInsertion() {
             return insertion;
         }
 
-        public void setInsertion(String insertion) {
+        public void setInsertion(@Nullable String insertion) {
             this.insertion = insertion;
         }
     }

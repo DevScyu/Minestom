@@ -3,80 +3,88 @@ package net.minestom.server.event.player;
 import net.minestom.server.chat.RichMessage;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.CancellableEvent;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.function.Function;
 
 /**
- * Called every time a player write and send something in the chat.
- * The event can be cancelled to do not send anything, and the format can be changed
+ * Called every time a {@link Player} write and send something in the chat.
+ * The event can be cancelled to do not send anything, and the format can be changed.
  */
 public class PlayerChatEvent extends CancellableEvent {
 
     private final Player sender;
-    private Collection<Player> recipients;
+    private final Collection<Player> recipients;
     private String message;
     private Function<PlayerChatEvent, RichMessage> chatFormat;
 
-    public PlayerChatEvent(Player sender, Collection<Player> recipients, String message) {
+    public PlayerChatEvent(@NotNull Player sender, @NotNull Collection<Player> recipients, @NotNull String message) {
         this.sender = sender;
         this.recipients = new ArrayList<>(recipients);
         this.message = message;
     }
 
     /**
-     * Change the chat format
+     * Changes the chat format.
      *
-     * @param chatFormat the custom chat format
+     * @param chatFormat the custom chat format, null to use the default one
      */
-    public void setChatFormat(Function<PlayerChatEvent, RichMessage> chatFormat) {
+    public void setChatFormat(@Nullable Function<PlayerChatEvent, RichMessage> chatFormat) {
         this.chatFormat = chatFormat;
     }
 
     /**
-     * Get the message sender
+     * Gets the message sender.
      *
      * @return the sender
      */
+    @NotNull
     public Player getSender() {
         return sender;
     }
 
     /**
-     * This is all the players who will receive the message
-     * It can be modified to add or remove recipient
+     * Those are the players who will receive the message.
+     * <p>
+     * It can be modified to add or remove recipient.
      *
      * @return a modifiable list of message targets
      */
+    @NotNull
     public Collection<Player> getRecipients() {
         return recipients;
     }
 
     /**
-     * Get the message sent
+     * Gets the message sent.
      *
      * @return the sender's message
      */
+    @NotNull
     public String getMessage() {
         return message;
     }
 
     /**
-     * Used to change the message
+     * Used to change the message.
      *
      * @param message the new message
      */
-    public void setMessage(String message) {
+    public void setMessage(@NotNull String message) {
         this.message = message;
     }
 
     /**
      * Used to retrieve the chat format for this message.
-     * If null, the default format will be used
+     * <p>
+     * If null, the default format will be used.
      *
-     * @return the chat format which will be used
+     * @return the chat format which will be used, null if this is the default one
      */
+    @Nullable
     public Function<PlayerChatEvent, RichMessage> getChatFormatFunction() {
         return chatFormat;
     }

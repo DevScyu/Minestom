@@ -5,6 +5,7 @@ import net.minestom.server.entity.EntityType;
 import net.minestom.server.entity.type.Animal;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
 
@@ -17,6 +18,7 @@ public class EntityPig extends EntityCreature implements Animal {
         setBoundingBox(0.9f, 0.9f, 0.9f);
     }
 
+    @NotNull
     @Override
     public Consumer<BinaryWriter> getMetadataConsumer() {
         return packet -> {
@@ -26,7 +28,7 @@ public class EntityPig extends EntityCreature implements Animal {
     }
 
     @Override
-    protected void fillMetadataIndex(BinaryWriter packet, int index) {
+    protected void fillMetadataIndex(@NotNull BinaryWriter packet, int index) {
         super.fillMetadataIndex(packet, index);
         if (index == 16) {
             packet.writeByte((byte) 16);
@@ -36,7 +38,7 @@ public class EntityPig extends EntityCreature implements Animal {
     }
 
     /**
-     * Get if the pig has a saddle
+     * Gets if the pig has a saddle.
      *
      * @return true if the pig has a saddle, false otherwise
      */
@@ -45,7 +47,7 @@ public class EntityPig extends EntityCreature implements Animal {
     }
 
     /**
-     * Set a saddle to the pig
+     * Sets a saddle to the pig.
      *
      * @param saddle true to add a saddle, false to remove it
      */

@@ -6,16 +6,17 @@ import net.minestom.server.event.player.PlayerLoginEvent;
 import net.minestom.server.network.player.FakePlayerConnection;
 import net.minestom.server.network.player.PlayerConnection;
 import net.minestom.server.utils.time.TimeUnit;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 import java.util.function.Consumer;
 
 public class FakePlayer extends Player {
 
-    private FakePlayerOption option;
-    private FakePlayerController fakePlayerController;
+    private final FakePlayerOption option;
+    private final FakePlayerController fakePlayerController;
 
-    private FakePlayer(UUID uuid, String username, FakePlayerOption option) {
+    private FakePlayer(@NotNull UUID uuid, @NotNull String username, @NotNull FakePlayerOption option) {
         super(uuid, username, new FakePlayerConnection());
 
         this.option = option;
@@ -28,7 +29,7 @@ public class FakePlayer extends Player {
     }
 
     /**
-     * Init a new FakePlayer
+     * Init a new {@link FakePlayer}.
      *
      * @param uuid              the FakePlayer uuid
      * @param username          the FakePlayer username
@@ -37,16 +38,15 @@ public class FakePlayer extends Player {
      *                          WARNING: it will be called in the
      *                          {@link net.minestom.server.timer.SchedulerManager} thread pool
      */
-    public static void initPlayer(UUID uuid, String username, FakePlayerOption option, Consumer<FakePlayer> scheduledCallback) {
+    public static void initPlayer(@NotNull UUID uuid, @NotNull String username,
+                                  @NotNull FakePlayerOption option, @NotNull Consumer<FakePlayer> scheduledCallback) {
         final FakePlayer fakePlayer = new FakePlayer(uuid, username, option);
 
-        fakePlayer.addEventCallback(PlayerLoginEvent.class, event -> {
-            MinecraftServer.getSchedulerManager().buildTask(() -> scheduledCallback.accept(fakePlayer)).delay(1, TimeUnit.TICK).schedule();
-        });
+        fakePlayer.addEventCallback(PlayerLoginEvent.class, event -> MinecraftServer.getSchedulerManager().buildTask(() -> scheduledCallback.accept(fakePlayer)).delay(1, TimeUnit.TICK).schedule());
     }
 
     /**
-     * Init a new FakePlayer without adding him in cache
+     * Init a new {@link FakePlayer} without adding him in cache.
      *
      * @param uuid              the FakePlayer uuid
      * @param username          the FakePlayer username
@@ -54,25 +54,27 @@ public class FakePlayer extends Player {
      *                          WARNING: it will be called in the
      *                          {@link net.minestom.server.timer.SchedulerManager} thread pool
      */
-    public static void initPlayer(UUID uuid, String username, Consumer<FakePlayer> scheduledCallback) {
+    public static void initPlayer(@NotNull UUID uuid, @NotNull String username, @NotNull Consumer<FakePlayer> scheduledCallback) {
         initPlayer(uuid, username, new FakePlayerOption(), scheduledCallback);
     }
 
     /**
-     * Get the fake player option container
+     * Gets the fake player option container.
      *
      * @return the fake player option
      */
+    @NotNull
     public FakePlayerOption getOption() {
         return option;
     }
 
+    @NotNull
     public FakePlayerController getController() {
         return fakePlayerController;
     }
 
     @Override
-    protected void showPlayer(PlayerConnection connection) {
+    protected void showPlayer(@NotNull PlayerConnection connection) {
         super.showPlayer(connection);
         if (!option.isInTabList()) {
             // Remove from tab-list

@@ -1,16 +1,17 @@
 package net.minestom.server.network.packet.server.play;
 
-import net.minestom.server.chat.ColoredText;
+import net.minestom.server.chat.JsonMessage;
 import net.minestom.server.entity.Entity;
 import net.minestom.server.entity.Player;
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.ServerPacketIdentifier;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.Optional;
 
 /**
- * Packet sent during combat to a player.
+ * Packet sent during combat to a {@link Player}.
  * Only death is supported for the moment (other events are ignored anyway as of 1.15.2)
  */
 public class CombatEventPacket implements ServerPacket {
@@ -19,7 +20,7 @@ public class CombatEventPacket implements ServerPacket {
     private int duration;
     private int opponent;
     private int playerID;
-    private ColoredText deathMessage;
+    private JsonMessage deathMessage; // Only text
 
     private CombatEventPacket() {
     }
@@ -38,7 +39,7 @@ public class CombatEventPacket implements ServerPacket {
         return packet;
     }
 
-    public static CombatEventPacket death(Player player, Optional<Entity> killer, ColoredText message) {
+    public static CombatEventPacket death(Player player, Optional<Entity> killer, JsonMessage message) {
         CombatEventPacket packet = new CombatEventPacket();
         packet.type = EventType.DEATH;
         packet.playerID = player.getEntityId();
@@ -48,7 +49,7 @@ public class CombatEventPacket implements ServerPacket {
     }
 
     @Override
-    public void write(BinaryWriter writer) {
+    public void write(@NotNull BinaryWriter writer) {
         writer.writeVarInt(type.ordinal());
         switch (type) {
             case ENTER_COMBAT:

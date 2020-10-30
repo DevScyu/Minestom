@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * An Object that represents a task that is scheduled for execution on the application.
+ * <p>
+ * Tasks are built in {@link SchedulerManager} and scheduled by a {@link TaskBuilder}.
  */
 public class Task implements Runnable {
 
@@ -27,13 +29,13 @@ public class Task implements Runnable {
     private volatile Thread currentThreadTask;
 
     /**
-     * Creates a task
+     * Creates a task.
      *
      * @param schedulerManager The manager for the task
-     * @param runnable The task to run when scheduled
-     * @param shutdown Defines whether the task is a shutdown task
-     * @param delay The time to delay
-     * @param repeat The time until the repetition
+     * @param runnable         The task to run when scheduled
+     * @param shutdown         Defines whether the task is a shutdown task
+     * @param delay            The time to delay
+     * @param repeat           The time until the repetition
      */
     public Task(SchedulerManager schedulerManager, Runnable runnable, boolean shutdown, long delay, long repeat) {
         this.schedulerManager = schedulerManager;
@@ -45,7 +47,7 @@ public class Task implements Runnable {
     }
 
     /**
-     * Executes the task
+     * Executes the task.
      */
     @Override
     public void run() {
@@ -69,7 +71,7 @@ public class Task implements Runnable {
     }
 
     /**
-     * Sets up the task for correct execution
+     * Sets up the task for correct execution.
      */
     public void schedule() {
         this.future = this.repeat == 0L ?
@@ -78,7 +80,7 @@ public class Task implements Runnable {
     }
 
     /**
-     * Gets the current status of the task
+     * Gets the current status of the task.
      *
      * @return the current stats of the task
      */
@@ -105,7 +107,16 @@ public class Task implements Runnable {
     }
 
     /**
-     * Removes the task
+     * Gets the id of this task.
+     *
+     * @return the task id
+     */
+    public int getId() {
+        return id;
+    }
+
+    /**
+     * Removes the task.
      */
     private void finish() {
         if (this.shutdown)

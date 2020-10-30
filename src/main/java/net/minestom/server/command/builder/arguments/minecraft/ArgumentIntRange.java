@@ -1,12 +1,14 @@
 package net.minestom.server.command.builder.arguments.minecraft;
 
 import net.minestom.server.utils.math.IntRange;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.regex.Pattern;
 
 /**
- * Represent an argument which will give you an {@link IntRange}
- * Chat format: ..3, 3.., 5..10, 15
+ * Represents an argument which will give you an {@link IntRange}.
+ * <p>
+ * Example: ..3, 3.., 5..10, 15
  */
 public class ArgumentIntRange extends ArgumentRange<IntRange> {
 
@@ -15,7 +17,7 @@ public class ArgumentIntRange extends ArgumentRange<IntRange> {
     }
 
     @Override
-    public int getCorrectionResult(String value) {
+    public int getCorrectionResult(@NotNull String value) {
         try {
             Integer.valueOf(value);
             return SUCCESS; // Is a single number
@@ -42,33 +44,34 @@ public class ArgumentIntRange extends ArgumentRange<IntRange> {
         }
     }
 
+    @NotNull
     @Override
-    public IntRange parse(String value) {
+    public IntRange parse(@NotNull String value) {
         if (value.contains("..")) {
             final int index = value.indexOf('.');
-            String[] split = value.split(Pattern.quote(".."));
+            final String[] split = value.split(Pattern.quote(".."));
 
             final int min;
             final int max;
             if (index == 0) {
                 // Format ..NUMBER
                 min = Integer.MIN_VALUE;
-                max = Integer.valueOf(split[0]);
+                max = Integer.parseInt(split[0]);
             } else {
                 if (split.length == 2) {
                     // Format NUMBER..NUMBER
-                    min = Integer.valueOf(split[0]);
-                    max = Integer.valueOf(split[1]);
+                    min = Integer.parseInt(split[0]);
+                    max = Integer.parseInt(split[1]);
                 } else {
                     // Format NUMBER..
-                    min = Integer.valueOf(split[0]);
+                    min = Integer.parseInt(split[0]);
                     max = Integer.MAX_VALUE;
                 }
             }
 
             return new IntRange(min, max);
         } else {
-            final int number = Integer.valueOf(value);
+            final int number = Integer.parseInt(value);
             return new IntRange(number);
         }
     }

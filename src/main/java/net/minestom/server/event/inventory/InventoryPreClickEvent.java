@@ -5,8 +5,12 @@ import net.minestom.server.event.CancellableEvent;
 import net.minestom.server.inventory.Inventory;
 import net.minestom.server.inventory.click.ClickType;
 import net.minestom.server.item.ItemStack;
-import net.minestom.server.utils.item.ItemStackUtils;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
+/**
+ * Called before {@link InventoryClickEvent}, used to potentially cancel the click.
+ */
 public class InventoryPreClickEvent extends CancellableEvent {
 
     private final Player player;
@@ -16,7 +20,9 @@ public class InventoryPreClickEvent extends CancellableEvent {
     private ItemStack clickedItem;
     private ItemStack cursorItem;
 
-    public InventoryPreClickEvent(Player player, Inventory inventory, int slot, ClickType clickType, ItemStack clicked, ItemStack cursor) {
+    public InventoryPreClickEvent(@NotNull Player player, @Nullable Inventory inventory,
+                                  int slot, @NotNull ClickType clickType,
+                                  @NotNull ItemStack clicked, @NotNull ItemStack cursor) {
         this.player = player;
         this.inventory = inventory;
         this.slot = slot;
@@ -26,25 +32,27 @@ public class InventoryPreClickEvent extends CancellableEvent {
     }
 
     /**
-     * Get the player who is trying to click on the inventory
+     * Gets the player who is trying to click on the inventory.
      *
      * @return the player who clicked
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Can be null if the clicked inventory is the player one
+     * Can be null if the clicked inventory is the player one.
      *
      * @return the inventory where the click happened, null if this is the player's inventory
      */
+    @Nullable
     public Inventory getInventory() {
         return inventory;
     }
 
     /**
-     * Get the clicked slot number
+     * Gets the clicked slot number.
      *
      * @return the clicked slot number
      */
@@ -53,47 +61,50 @@ public class InventoryPreClickEvent extends CancellableEvent {
     }
 
     /**
-     * Get the click type
+     * Gets the click type.
      *
      * @return the click type
      */
+    @NotNull
     public ClickType getClickType() {
         return clickType;
     }
 
     /**
-     * Get the item who have been clicked
+     * Gets the item who have been clicked.
      *
      * @return the clicked item
      */
+    @NotNull
     public ItemStack getClickedItem() {
         return clickedItem;
     }
 
     /**
-     * Change the clicked item
+     * Changes the clicked item.
      *
      * @param clickedItem the clicked item
      */
-    public void setClickedItem(ItemStack clickedItem) {
-        this.clickedItem = ItemStackUtils.notNull(clickedItem);
+    public void setClickedItem(@NotNull ItemStack clickedItem) {
+        this.clickedItem = clickedItem;
     }
 
     /**
-     * Get the item who was in the player cursor
+     * Gets the item who was in the player cursor.
      *
      * @return the cursor item
      */
+    @NotNull
     public ItemStack getCursorItem() {
         return cursorItem;
     }
 
     /**
-     * Change the cursor item
+     * Changes the cursor item.
      *
      * @param cursorItem the cursor item
      */
-    public void setCursorItem(ItemStack cursorItem) {
-        this.cursorItem = ItemStackUtils.notNull(cursorItem);
+    public void setCursorItem(@NotNull ItemStack cursorItem) {
+        this.cursorItem = cursorItem;
     }
 }

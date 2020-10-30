@@ -1,5 +1,7 @@
 package net.minestom.server.inventory;
 
+import net.minestom.server.data.Data;
+import net.minestom.server.data.DataContainer;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.item.ArmorEquipEvent;
 import net.minestom.server.event.player.PlayerAddItemStackEvent;
@@ -17,8 +19,9 @@ import net.minestom.server.network.packet.server.play.SetSlotPacket;
 import net.minestom.server.network.packet.server.play.WindowItemsPacket;
 import net.minestom.server.utils.ArrayUtils;
 import net.minestom.server.utils.MathUtils;
-import net.minestom.server.utils.item.ItemStackUtils;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 import java.util.List;
@@ -26,16 +29,21 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static net.minestom.server.utils.inventory.PlayerInventoryUtils.*;
 
-public class PlayerInventory implements InventoryModifier, InventoryClickHandler, EquipmentHandler {
+/**
+ * Represents the inventory of a {@link Player}, retrieved with {@link Player#getInventory()}.
+ */
+public class PlayerInventory implements InventoryModifier, InventoryClickHandler, EquipmentHandler, DataContainer {
 
     public static final int INVENTORY_SIZE = 46;
 
-    private Player player;
-    private ItemStack[] items = new ItemStack[INVENTORY_SIZE];
+    private final Player player;
+    private final ItemStack[] items = new ItemStack[INVENTORY_SIZE];
     private ItemStack cursorItem = ItemStack.getAirItem();
 
-    private List<InventoryCondition> inventoryConditions = new CopyOnWriteArrayList<>();
-    private InventoryClickProcessor clickProcessor = new InventoryClickProcessor();
+    private final List<InventoryCondition> inventoryConditions = new CopyOnWriteArrayList<>();
+    private final InventoryClickProcessor clickProcessor = new InventoryClickProcessor();
+
+    private Data data;
 
     public PlayerInventory(Player player) {
         this.player = player;
@@ -43,23 +51,26 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
         ArrayUtils.fill(items, ItemStack::getAirItem);
     }
 
+    @NotNull
     @Override
     public ItemStack getItemStack(int slot) {
         return this.items[slot];
     }
 
+    @NotNull
     @Override
     public ItemStack[] getItemStacks() {
         return Arrays.copyOf(items, items.length);
     }
 
+    @NotNull
     @Override
     public List<InventoryCondition> getInventoryConditions() {
         return inventoryConditions;
     }
 
     @Override
-    public void addInventoryCondition(InventoryCondition inventoryCondition) {
+    public void addInventoryCondition(@NotNull InventoryCondition inventoryCondition) {
         InventoryCondition condition = (p, slot, clickType, inventoryConditionResult) -> {
             slot = convertSlot(slot, OFFSET);
             inventoryCondition.accept(p, slot, clickType, inventoryConditionResult);
@@ -69,9 +80,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public void setItemStack(int slot, ItemStack itemStack) {
-        itemStack = ItemStackUtils.notNull(itemStack);
-
+    public void setItemStack(int slot, @NotNull ItemStack itemStack) {
         PlayerSetItemStackEvent setItemStackEvent = new PlayerSetItemStackEvent(player, slot, itemStack);
         player.callEvent(PlayerSetItemStackEvent.class, setItemStackEvent);
         if (setItemStackEvent.isCancelled())
@@ -83,9 +92,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public synchronized boolean addItemStack(ItemStack itemStack) {
-        itemStack = ItemStackUtils.notNull(itemStack);
-
+    public synchronized boolean addItemStack(@NotNull ItemStack itemStack) {
         PlayerAddItemStackEvent addItemStackEvent = new PlayerAddItemStackEvent(player, itemStack);
         player.callEvent(PlayerAddItemStackEvent.class, addItemStackEvent);
         if (addItemStackEvent.isCancelled())
@@ -93,16 +100,16 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
 
         itemStack = addItemStackEvent.getItemStack();
 
-        StackingRule stackingRule = itemStack.getStackingRule();
+        final StackingRule stackingRule = itemStack.getStackingRule();
         for (int i = 0; i < items.length - 10; i++) {
             ItemStack item = items[i];
-            StackingRule itemStackingRule = item.getStackingRule();
+            final StackingRule itemStackingRule = item.getStackingRule();
             if (itemStackingRule.canBeStacked(itemStack, item)) {
-                int itemAmount = itemStackingRule.getAmount(item);
+                final int itemAmount = itemStackingRule.getAmount(item);
                 if (itemAmount == stackingRule.getMaxSize())
                     continue;
-                int itemStackAmount = itemStackingRule.getAmount(itemStack);
-                int totalAmount = itemStackAmount + itemAmount;
+                final int itemStackAmount = itemStackingRule.getAmount(itemStack);
+                final int totalAmount = itemStackAmount + itemAmount;
                 if (!stackingRule.canApply(itemStack, totalAmount)) {
                     item = itemStackingRule.apply(item, itemStackingRule.getMaxSize());
 
@@ -136,68 +143,74 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
         return INVENTORY_SIZE;
     }
 
+    @NotNull
     @Override
     public ItemStack getItemInMainHand() {
         return getItemStack(player.getHeldSlot());
     }
 
     @Override
-    public void setItemInMainHand(ItemStack itemStack) {
+    public void setItemInMainHand(@NotNull ItemStack itemStack) {
         safeItemInsert(player.getHeldSlot(), itemStack);
     }
 
+    @NotNull
     @Override
     public ItemStack getItemInOffHand() {
         return getItemStack(OFFHAND_SLOT);
     }
 
     @Override
-    public void setItemInOffHand(ItemStack itemStack) {
+    public void setItemInOffHand(@NotNull ItemStack itemStack) {
         safeItemInsert(OFFHAND_SLOT, itemStack);
     }
 
+    @NotNull
     @Override
     public ItemStack getHelmet() {
         return getItemStack(HELMET_SLOT);
     }
 
     @Override
-    public void setHelmet(ItemStack itemStack) {
+    public void setHelmet(@NotNull ItemStack itemStack) {
         safeItemInsert(HELMET_SLOT, itemStack);
     }
 
+    @NotNull
     @Override
     public ItemStack getChestplate() {
         return getItemStack(CHESTPLATE_SLOT);
     }
 
     @Override
-    public void setChestplate(ItemStack itemStack) {
+    public void setChestplate(@NotNull ItemStack itemStack) {
         safeItemInsert(CHESTPLATE_SLOT, itemStack);
     }
 
+    @NotNull
     @Override
     public ItemStack getLeggings() {
         return getItemStack(LEGGINGS_SLOT);
     }
 
     @Override
-    public void setLeggings(ItemStack itemStack) {
+    public void setLeggings(@NotNull ItemStack itemStack) {
         safeItemInsert(LEGGINGS_SLOT, itemStack);
     }
 
+    @NotNull
     @Override
     public ItemStack getBoots() {
         return getItemStack(BOOTS_SLOT);
     }
 
     @Override
-    public void setBoots(ItemStack itemStack) {
+    public void setBoots(@NotNull ItemStack itemStack) {
         safeItemInsert(BOOTS_SLOT, itemStack);
     }
 
     /**
-     * Refresh the player inventory by sending a {@link WindowItemsPacket} containing all
+     * Refreshes the player inventory by sending a {@link WindowItemsPacket} containing all.
      * the inventory items
      */
     public void update() {
@@ -205,30 +218,30 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     /**
-     * Refresh only a specific slot with the updated item stack data
+     * Refreshes only a specific slot with the updated item stack data.
      *
      * @param slot the slot to refresh
      */
-    public void refreshSlot(int slot) {
+    public void refreshSlot(short slot) {
         sendSlotRefresh((short) convertToPacketSlot(slot), getItemStack(slot));
     }
 
     /**
-     * Get the item in player cursor
+     * Gets the item in player cursor.
      *
      * @return the cursor item
      */
+    @NotNull
     public ItemStack getCursorItem() {
         return cursorItem;
     }
 
     /**
-     * Change the player cursor item
+     * Changes the player cursor item.
      *
      * @param cursorItem the new cursor item
      */
-    public void setCursorItem(ItemStack cursorItem) {
-        cursorItem = ItemStackUtils.notNull(cursorItem);
+    public void setCursorItem(@NotNull ItemStack cursorItem) {
         this.cursorItem = cursorItem;
         SetSlotPacket setSlotPacket = new SetSlotPacket();
         setSlotPacket.windowId = -1;
@@ -238,14 +251,14 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     /**
-     * Insert an item safely (synchronized) in the appropriate slot
+     * Inserts an item safely (synchronized) in the appropriate slot.
      *
      * @param slot      an internal slot
      * @param itemStack the item to insert at the slot
      * @throws IllegalArgumentException if the slot {@code slot} does not exist
      * @throws NullPointerException     if {@code itemStack} is null
      */
-    private synchronized void safeItemInsert(int slot, ItemStack itemStack) {
+    private synchronized void safeItemInsert(int slot, @NotNull ItemStack itemStack) {
         Check.argCondition(!MathUtils.isBetween(slot, 0, getSize()),
                 "The slot " + slot + " does not exist for player");
         Check.notNull(itemStack, "The ItemStack cannot be null, you can set air instead");
@@ -297,7 +310,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     /**
-     * Set an item from a packet slot
+     * Sets an item from a packet slot.
      *
      * @param slot      a packet slot
      * @param offset    offset (generally 9 to ignore armor and craft slots)
@@ -309,7 +322,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     /**
-     * Get the item from a packet slot
+     * Gets the item from a packet slot.
      *
      * @param slot   a packet slot
      * @param offset offset (generally 9 to ignore armor and craft slots)
@@ -321,7 +334,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     /**
-     * Refresh an inventory slot
+     * Refreshes an inventory slot.
      *
      * @param slot      the packet slot
      *                  see {@link net.minestom.server.utils.inventory.PlayerInventoryUtils#convertToPacketSlot(int)}
@@ -336,7 +349,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     /**
-     * Get a {@link WindowItemsPacket} with all the items in the inventory
+     * Gets a {@link WindowItemsPacket} with all the items in the inventory.
      *
      * @return a {@link WindowItemsPacket} with inventory items
      */
@@ -355,7 +368,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean leftClick(Player player, int slot) {
+    public boolean leftClick(@NotNull Player player, int slot) {
         final ItemStack cursor = getCursorItem();
         final ItemStack clicked = getItemStack(convertSlot(slot, OFFSET));
 
@@ -374,7 +387,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean rightClick(Player player, int slot) {
+    public boolean rightClick(@NotNull Player player, int slot) {
         final ItemStack cursor = getCursorItem();
         final ItemStack clicked = getItemStack(slot, OFFSET);
 
@@ -393,13 +406,13 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean middleClick(Player player, int slot) {
+    public boolean middleClick(@NotNull Player player, int slot) {
         // TODO
         return false;
     }
 
     @Override
-    public boolean drop(Player player, int mode, int slot, int button) {
+    public boolean drop(@NotNull Player player, int mode, int slot, int button) {
         final ItemStack cursor = getCursorItem();
         final ItemStack clicked = slot == -999 ? null : getItemStack(slot, OFFSET);
 
@@ -418,15 +431,15 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean shiftClick(Player player, int slot) {
+    public boolean shiftClick(@NotNull Player player, int slot) {
         final ItemStack cursor = getCursorItem();
         final ItemStack clicked = getItemStack(slot, OFFSET);
 
-        final boolean hotbarClick = convertToPacketSlot(slot) < 9;
+        final boolean hotBarClick = convertToPacketSlot(slot) < 9;
         final InventoryClickResult clickResult = clickProcessor.shiftClick(null, player, slot, clicked, cursor,
                 new InventoryClickLoopHandler(0, items.length, 1,
                         i -> {
-                            if (hotbarClick) {
+                            if (hotBarClick) {
                                 return i < 9 ? i + 9 : i - 9;
                             } else {
                                 return convertSlot(i, OFFSET);
@@ -447,7 +460,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean changeHeld(Player player, int slot, int key) {
+    public boolean changeHeld(@NotNull Player player, int slot, int key) {
         if (!getCursorItem().isAir())
             return false;
 
@@ -473,7 +486,7 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean dragging(Player player, int slot, int button) {
+    public boolean dragging(@NotNull Player player, int slot, int button) {
         final ItemStack cursor = getCursorItem();
         ItemStack clicked = null;
         if (slot != -999)
@@ -497,14 +510,14 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
     }
 
     @Override
-    public boolean doubleClick(Player player, int slot) {
+    public boolean doubleClick(@NotNull Player player, int slot) {
         final ItemStack cursor = getCursorItem();
 
         final InventoryClickResult clickResult = clickProcessor.doubleClick(null, player, slot, cursor,
                 new InventoryClickLoopHandler(0, items.length, 1,
                         i -> i < 9 ? i + 9 : i - 9,
                         index -> items[index],
-                        (index, itemStack) -> setItemStack(index, itemStack)));
+                        this::setItemStack));
 
         if (clickResult == null)
             return false;
@@ -515,5 +528,16 @@ public class PlayerInventory implements InventoryModifier, InventoryClickHandler
         setCursorItem(clickResult.getCursor());
 
         return !clickResult.isCancel();
+    }
+
+    @Nullable
+    @Override
+    public Data getData() {
+        return data;
+    }
+
+    @Override
+    public void setData(@Nullable Data data) {
+        this.data = data;
     }
 }

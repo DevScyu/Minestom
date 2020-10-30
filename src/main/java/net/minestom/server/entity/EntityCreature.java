@@ -20,9 +20,10 @@ import net.minestom.server.network.player.PlayerConnection;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.Vector;
 import net.minestom.server.utils.chunk.ChunkUtils;
-import net.minestom.server.utils.item.ItemStackUtils;
 import net.minestom.server.utils.time.TimeUnit;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,8 +37,8 @@ public abstract class EntityCreature extends LivingEntity {
     private IPath path;
     private Position pathPosition;
 
-    protected List<GoalSelector> goalSelectors = new ArrayList<>();
-    protected List<TargetSelector> targetSelectors = new ArrayList<>();
+    protected final List<GoalSelector> goalSelectors = new ArrayList<>();
+    protected final List<TargetSelector> targetSelectors = new ArrayList<>();
     private GoalSelector currentGoalSelector;
 
     private Entity target;
@@ -143,7 +144,7 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     @Override
-    public void setInstance(Instance instance) {
+    public void setInstance(@NotNull Instance instance) {
         super.setInstance(instance);
         this.pathFinder = new HydrazinePathFinder(pathingEntity, instance.getInstanceSpace());
     }
@@ -162,7 +163,7 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     @Override
-    public boolean addViewer(Player player) {
+    public boolean addViewer(@NotNull Player player) {
         final boolean result = super.addViewer(player);
 
         final PlayerConnection playerConnection = player.getPlayerConnection();
@@ -193,114 +194,123 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     /**
-     * Get the goal selectors of this entity
+     * Gets the goal selectors of this entity.
      *
      * @return a modifiable list containing the entity goal selectors
      */
+    @NotNull
     public List<GoalSelector> getGoalSelectors() {
         return goalSelectors;
     }
 
     /**
-     * Get the target selectors of this entity
+     * Gets the target selectors of this entity.
      *
      * @return a modifiable list containing the entity target selectors
      */
+    @NotNull
     public List<TargetSelector> getTargetSelectors() {
         return targetSelectors;
     }
 
     /**
-     * Get the entity target
+     * Gets the entity target.
      *
      * @return the entity target
      */
+    @Nullable
     public Entity getTarget() {
         return target;
     }
 
     /**
-     * Change the entity target
+     * Changes the entity target.
      *
      * @param target the new entity target
      */
-    public void setTarget(Entity target) {
+    public void setTarget(@NotNull Entity target) {
         this.target = target;
     }
 
+    @NotNull
     @Override
     public ItemStack getItemInMainHand() {
         return mainHandItem;
     }
 
     @Override
-    public void setItemInMainHand(ItemStack itemStack) {
-        this.mainHandItem = ItemStackUtils.notNull(itemStack);
+    public void setItemInMainHand(@NotNull ItemStack itemStack) {
+        this.mainHandItem = itemStack;
         syncEquipment(EntityEquipmentPacket.Slot.MAIN_HAND);
     }
 
+    @NotNull
     @Override
     public ItemStack getItemInOffHand() {
         return offHandItem;
     }
 
     @Override
-    public void setItemInOffHand(ItemStack itemStack) {
-        this.offHandItem = ItemStackUtils.notNull(itemStack);
+    public void setItemInOffHand(@NotNull ItemStack itemStack) {
+        this.offHandItem = itemStack;
         syncEquipment(EntityEquipmentPacket.Slot.OFF_HAND);
     }
 
+    @NotNull
     @Override
     public ItemStack getHelmet() {
         return helmet;
     }
 
     @Override
-    public void setHelmet(ItemStack itemStack) {
+    public void setHelmet(@NotNull ItemStack itemStack) {
         this.helmet = getEquipmentItem(itemStack, ArmorEquipEvent.ArmorSlot.HELMET);
         syncEquipment(EntityEquipmentPacket.Slot.HELMET);
     }
 
+    @NotNull
     @Override
     public ItemStack getChestplate() {
         return chestplate;
     }
 
     @Override
-    public void setChestplate(ItemStack itemStack) {
+    public void setChestplate(@NotNull ItemStack itemStack) {
         this.chestplate = getEquipmentItem(itemStack, ArmorEquipEvent.ArmorSlot.CHESTPLATE);
         syncEquipment(EntityEquipmentPacket.Slot.CHESTPLATE);
     }
 
+    @NotNull
     @Override
     public ItemStack getLeggings() {
         return leggings;
     }
 
     @Override
-    public void setLeggings(ItemStack itemStack) {
+    public void setLeggings(@NotNull ItemStack itemStack) {
         this.leggings = getEquipmentItem(itemStack, ArmorEquipEvent.ArmorSlot.LEGGINGS);
         syncEquipment(EntityEquipmentPacket.Slot.LEGGINGS);
     }
 
+    @NotNull
     @Override
     public ItemStack getBoots() {
         return boots;
     }
 
     @Override
-    public void setBoots(ItemStack itemStack) {
+    public void setBoots(@NotNull ItemStack itemStack) {
         this.boots = getEquipmentItem(itemStack, ArmorEquipEvent.ArmorSlot.BOOTS);
         syncEquipment(EntityEquipmentPacket.Slot.BOOTS);
     }
 
     /**
-     * Call a {@link EntityAttackEvent} with this entity as the source and {@code target} as the target.
+     * Calls a {@link EntityAttackEvent} with this entity as the source and {@code target} as the target.
      *
      * @param target    the entity target
      * @param swingHand true to swing the entity main hand, false otherwise
      */
-    public void attack(Entity target, boolean swingHand) {
+    public void attack(@NotNull Entity target, boolean swingHand) {
         if (swingHand)
             swingMainHand();
         EntityAttackEvent attackEvent = new EntityAttackEvent(this, target);
@@ -308,13 +318,13 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     /**
-     * Call a {@link EntityAttackEvent} with this entity as the source and {@code target} as the target.
+     * Calls a {@link EntityAttackEvent} with this entity as the source and {@code target} as the target.
      * <p>
-     * This does not trigger the hand animation
+     * This does not trigger the hand animation.
      *
      * @param target the entity target
      */
-    public void attack(Entity target) {
+    public void attack(@NotNull Entity target) {
         attack(target, false);
     }
 
@@ -325,17 +335,17 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     /**
-     * Retrieve the path to {@code position} and ask the entity to follow the path
+     * Retrieves the path to {@code position} and ask the entity to follow the path.
      * <p>
-     * Can be set to null to reset the pathfinder
+     * Can be set to null to reset the pathfinder.
      * <p>
      * The position is cloned, if you want the entity to continually follow this position object
-     * you need to call this when you want the path to update
+     * you need to call this when you want the path to update.
      *
      * @param position the position to find the path to, null to reset the pathfinder
      * @return true if a path has been found
      */
-    public boolean setPathTo(Position position) {
+    public boolean setPathTo(@Nullable Position position) {
         if (position != null && getPathPosition() != null && position.isSimilar(getPathPosition())) {
             // Tried to set path to the same target position
             return false;
@@ -379,10 +389,11 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     /**
-     * Get the target pathfinder position
+     * Gets the target pathfinder position.
      *
      * @return the target pathfinder position, null if there is no one
      */
+    @Nullable
     public Position getPathPosition() {
         return pathPosition;
     }
@@ -395,7 +406,7 @@ public abstract class EntityCreature extends LivingEntity {
      * @param direction the targeted position
      * @param speed     define how far the entity will move
      */
-    public void moveTowards(Position direction, float speed) {
+    public void moveTowards(@NotNull Position direction, float speed) {
         Check.notNull(direction, "The direction cannot be null");
         final float currentX = position.getX();
         final float currentZ = position.getZ();
@@ -423,12 +434,13 @@ public abstract class EntityCreature extends LivingEntity {
     }
 
     /**
-     * Get the pathing entity
+     * Gets the pathing entity.
      * <p>
-     * Used by the pathfinder
+     * Used by the pathfinder.
      *
      * @return the pathing entity
      */
+    @NotNull
     public PFPathingEntity getPathingEntity() {
         return pathingEntity;
     }
@@ -442,9 +454,7 @@ public abstract class EntityCreature extends LivingEntity {
         getPosition().setPitch(pitch);
     }
 
-    private ItemStack getEquipmentItem(ItemStack itemStack, ArmorEquipEvent.ArmorSlot armorSlot) {
-        itemStack = ItemStackUtils.notNull(itemStack);
-
+    private ItemStack getEquipmentItem(@NotNull ItemStack itemStack, @NotNull ArmorEquipEvent.ArmorSlot armorSlot) {
         ArmorEquipEvent armorEquipEvent = new ArmorEquipEvent(this, itemStack, armorSlot);
         callEvent(ArmorEquipEvent.class, armorEquipEvent);
         return armorEquipEvent.getArmorItem();

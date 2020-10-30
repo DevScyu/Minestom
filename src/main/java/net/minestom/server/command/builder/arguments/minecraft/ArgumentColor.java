@@ -2,10 +2,12 @@ package net.minestom.server.command.builder.arguments.minecraft;
 
 import net.minestom.server.chat.ChatColor;
 import net.minestom.server.command.builder.arguments.Argument;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Represent an argument which will give you a {@link ChatColor}
- * Chat format: red, white, reset, etc...
+ * Represents an argument which will give you a {@link ChatColor}.
+ * <p>
+ * Example: red, white, reset
  */
 public class ArgumentColor extends Argument<ChatColor> {
 
@@ -16,18 +18,19 @@ public class ArgumentColor extends Argument<ChatColor> {
     }
 
     @Override
-    public int getCorrectionResult(String value) {
-        ChatColor color = ChatColor.fromName(value);
+    public int getCorrectionResult(@NotNull String value) {
+        final ChatColor color = ChatColor.fromName(value);
         return color == ChatColor.NO_COLOR ? UNDEFINED_COLOR : SUCCESS;
     }
 
+    @NotNull
     @Override
-    public ChatColor parse(String value) {
+    public ChatColor parse(@NotNull String value) {
         return ChatColor.fromName(value);
     }
 
     @Override
-    public int getConditionResult(ChatColor value) {
+    public int getConditionResult(@NotNull ChatColor value) {
         return SUCCESS;
     }
 }

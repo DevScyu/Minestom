@@ -1,31 +1,34 @@
 package net.minestom.server.command.builder.arguments.minecraft;
 
+import it.unimi.dsi.fastutil.chars.CharArrayList;
+import it.unimi.dsi.fastutil.chars.CharList;
 import net.minestom.server.command.builder.arguments.Argument;
 import net.minestom.server.utils.time.TimeUnit;
 import net.minestom.server.utils.time.UpdateOption;
-
-import java.util.Arrays;
-import java.util.List;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Represent an argument giving a time (day/second/tick)
- * Chat format: 50d, 25s, 75t
+ * Represents an argument giving a time (day/second/tick).
+ * <p>
+ * Example: 50d, 25s, 75t
  */
 public class ArgumentTime extends Argument<UpdateOption> {
 
     public static final int INVALID_TIME_FORMAT = -2;
     public static final int NO_NUMBER = -3;
-    private static final List<Character> suffixes = Arrays.asList('d', 's', 't');
+
+    private static final CharList SUFFIXES = new CharArrayList(new char[]{'d', 's', 't'});
 
     public ArgumentTime(String id) {
         super(id);
     }
 
     @Override
-    public int getCorrectionResult(String value) {
+    public int getCorrectionResult(@NotNull String value) {
         final char lastChar = value.charAt(value.length() - 1);
-        if (!suffixes.contains(lastChar))
+        if (!SUFFIXES.contains(lastChar))
             return INVALID_TIME_FORMAT;
+
         value = value.substring(0, value.length() - 1);
         try {
             // Check if value is a number
@@ -37,8 +40,9 @@ public class ArgumentTime extends Argument<UpdateOption> {
         }
     }
 
+    @NotNull
     @Override
-    public UpdateOption parse(String value) {
+    public UpdateOption parse(@NotNull String value) {
         final char lastChar = value.charAt(value.length() - 1);
         TimeUnit timeUnit = null;
         if (lastChar == 'd') {
@@ -55,7 +59,7 @@ public class ArgumentTime extends Argument<UpdateOption> {
     }
 
     @Override
-    public int getConditionResult(UpdateOption value) {
+    public int getConditionResult(@NotNull UpdateOption value) {
         return SUCCESS;
     }
 }

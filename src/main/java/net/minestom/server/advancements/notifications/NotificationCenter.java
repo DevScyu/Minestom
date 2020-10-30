@@ -10,18 +10,28 @@ import java.sql.Date;
 import java.util.Collection;
 
 /**
- * Used to send one or multiples {@link Notification}
+ * Used to send one or multiples {@link Notification}.
+ * <p>
+ * Works by sending a completed advancement and remove it immediately.
+ * <p>
+ * You can simply create a {@link Notification} object and call {@link #send(Notification, Player)}.
  */
 public class NotificationCenter {
 
     private static final String IDENTIFIER = "minestom:notification";
 
     /**
-     * Can't create an instance
+     * Can't create an instance, use the static methods instead.
      */
     private NotificationCenter() {
     }
 
+    /**
+     * Send a {@link Notification} to one player.
+     *
+     * @param notification the {@link Notification} to send
+     * @param player       the player to send the notification to
+     */
     public static void send(Notification notification, Player player) {
         final PlayerConnection playerConnection = player.getPlayerConnection();
 
@@ -30,15 +40,19 @@ public class NotificationCenter {
         playerConnection.sendPacket(AdvancementUtils.getRemovePacket(new String[]{IDENTIFIER}));
     }
 
+    /**
+     * Send a {@link Notification} to a collection of players.
+     *
+     * @param notification the {@link Notification} to send
+     * @param players      the collection of players to send the notification to
+     */
     public static void send(Notification notification, Collection<Player> players) {
-        // Can't use PacketWriterUtils before we need the packets to come in the correct order
-        players.forEach(player -> {
-            send(notification, player);
-        });
+        // Can't use PacketWriterUtils because we need the packets to come in the correct order
+        players.forEach(player -> send(notification, player));
     }
 
     /**
-     * Create the packet responsive for showing the Toast to players
+     * Create the {@link AdvancementsPacket} responsible for showing the Toast to players
      *
      * @param notification the notification
      * @return the packet used to show the Toast

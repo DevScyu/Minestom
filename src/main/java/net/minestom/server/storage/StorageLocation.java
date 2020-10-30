@@ -5,14 +5,17 @@ import net.minestom.server.data.*;
 import net.minestom.server.utils.binary.BinaryReader;
 import net.minestom.server.utils.binary.BinaryWriter;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Represent an area which contain data.
+ * Represents an area which contain data.
  * <p>
- * Each {@link StorageLocation} has a {@link StorageSystem} associated to it which is used to save and retrieve data from keys.
+ * Each {@link StorageLocation} has a {@link StorageSystem} associated to it
+ * which is used to save and retrieve data from keys.
  */
 public class StorageLocation {
 
@@ -33,39 +36,40 @@ public class StorageLocation {
     }
 
     /**
-     * Get the data associated with a key using {@link StorageSystem#get(String)}
+     * Gets the data associated with a key using {@link StorageSystem#get(String)}.
      *
      * @param key the key
-     * @return the data associated to {@code key}
+     * @return the data associated to {@code key}, null if not any
      * @see StorageSystem#get(String)
      */
-    public byte[] get(String key) {
+    @Nullable
+    public byte[] get(@NotNull String key) {
         return storageSystem.get(key);
     }
 
     /**
-     * Set a data associated to a key using {@link StorageSystem#set(String, byte[])}
+     * Sets a data associated to a key using {@link StorageSystem#set(String, byte[])}.
      *
      * @param key  the key of the data
      * @param data the data
      * @see StorageSystem#set(String, byte[])
      */
-    public void set(String key, byte[] data) {
+    public void set(@NotNull String key, byte[] data) {
         this.storageSystem.set(key, data);
     }
 
     /**
-     * Delete a key using the associated {@link StorageSystem}
+     * Deletes a key using the associated {@link StorageSystem}.
      *
      * @param key the key
      * @see StorageSystem#delete(String)
      */
-    public void delete(String key) {
+    public void delete(@NotNull String key) {
         this.storageSystem.delete(key);
     }
 
     /**
-     * Close the {@link StorageLocation} using {@link StorageSystem#close()}
+     * Closes the {@link StorageLocation} using {@link StorageSystem#close()}.
      *
      * @see StorageSystem#close()
      */
@@ -74,17 +78,17 @@ public class StorageLocation {
     }
 
     /**
-     * Set an object associated to a key
+     * Sets an object associated to a key.
      * <p>
      * It does use registered {@link DataType} located on {@link DataManager}
-     * So you need to register all the types that you use
+     * So you need to register all the types that you use.
      *
      * @param key    the key
      * @param object the data object
      * @param type   the class of the data
      * @param <T>    the type of the data
      */
-    public <T> void set(String key, T object, Class<T> type) {
+    public <T> void set(@NotNull String key, @NotNull T object, @NotNull Class<T> type) {
         final DataType<T> dataType = DATA_MANAGER.getDataType(type);
         Check.notNull(dataType, "You can only save registered DataType type!");
 
@@ -98,17 +102,17 @@ public class StorageLocation {
     }
 
     /**
-     * Retrieve a serialized object associated to a key
+     * Retrieves a serialized object associated to a key.
      * <p>
-     * It does use registered {@link DataType} located on {@link DataManager}
-     * So you need to register all the types that you use
+     * It does use registered {@link DataType} located on {@link DataManager}.
+     * So you need to register all the types that you use.
      *
      * @param key  the key
      * @param type the class of the data
      * @param <T>  the type of the data
      * @return the object associated to the key
      */
-    public <T> T get(String key, Class<T> type) {
+    public <T> T get(@NotNull String key, @NotNull Class<T> type) {
         final DataType<T> dataType = DATA_MANAGER.getDataType(type);
         Check.notNull(dataType, "You can only get registered DataType type!");
 
@@ -122,18 +126,19 @@ public class StorageLocation {
         return dataType.decode(binaryReader);
     }
 
-    public <T> T getOrDefault(String key, Class<T> type, T defaultValue) {
+    public <T> T getOrDefault(@NotNull String key, @NotNull Class<T> type, @Nullable T defaultValue) {
         T value;
         return (value = get(key, type)) != null ? value : defaultValue;
     }
 
     /**
-     * Get an unique {@link SerializableData} which is cloned if cached or retrieved with the default {@link StorageSystem}
+     * Gets an unique {@link SerializableData}
+     * which is cloned if cached or retrieved with the default {@link StorageSystem}.
      *
      * @param key           the key of the data
      * @param dataContainer the {@link DataContainer} which will contain the new data
      */
-    public void getAndCloneData(String key, DataContainer dataContainer) {
+    public void getAndCloneData(@NotNull String key, @NotNull DataContainer dataContainer) {
         synchronized (cachedData) {
             // Copy data from the cachedMap
             if (cachedData.containsKey(key)) {
@@ -151,7 +156,7 @@ public class StorageLocation {
     }
 
     /**
-     * Get a shared {@link SerializableData} if already in memory or retrieve it from the default {@link StorageSystem} and save it in cache
+     * Gets a shared {@link SerializableData} if already in memory or retrieve it from the default {@link StorageSystem} and save it in cache
      * for further request.
      * Those cached data can be saved using {@link #saveCachedData()} or individually with {@link #saveCachedData(String)}
      * It is also possible to save an individual data and remove it directly with {@link #saveAndRemoveCachedData(String)}
@@ -159,7 +164,7 @@ public class StorageLocation {
      * @param key           the key of the data
      * @param dataContainer the {@link DataContainer} which will contain the new data
      */
-    public void getAndCacheData(String key, DataContainer dataContainer) {
+    public void getAndCacheData(@NotNull String key, @NotNull DataContainer dataContainer) {
         synchronized (cachedData) {
             // Give the cached SerializableData if already loaded
             if (cachedData.containsKey(key)) {
@@ -178,11 +183,11 @@ public class StorageLocation {
     }
 
     /**
-     * Save a specified cached data and remove it from memory
+     * Saves a specified cached {@link SerializableData} and remove it from memory.
      *
      * @param key the specified cached data key
      */
-    public void saveAndRemoveCachedData(String key) {
+    public void saveAndRemoveCachedData(@NotNull String key) {
         synchronized (cachedData) {
             final SerializableData serializableData = cachedData.get(key);
             if (serializableData == null)
@@ -197,22 +202,20 @@ public class StorageLocation {
     }
 
     /**
-     * Save the whole cached data
+     * Saves the all the cached {@link SerializableData}.
      */
     public void saveCachedData() {
         synchronized (cachedData) {
-            cachedData.forEach((key, data) -> {
-                set(key, data.getIndexedSerializedData());
-            });
+            cachedData.forEach((key, data) -> set(key, data.getIndexedSerializedData()));
         }
     }
 
     /**
-     * Save an unique cached data
+     * Saves an unique cached {@link SerializableData}.
      *
      * @param key the data key
      */
-    public void saveCachedData(String key) {
+    public void saveCachedData(@NotNull String key) {
         synchronized (cachedData) {
             final SerializableData data = cachedData.get(key);
             set(key, data.getIndexedSerializedData());
@@ -220,12 +223,13 @@ public class StorageLocation {
     }
 
     /**
-     * Get the location of this storage
+     * Gets the location of this storage.
      * <p>
-     * WARNING: this is not necessary a file or folder path
+     * WARNING: this is not necessary a file or folder path.
      *
      * @return the location
      */
+    @NotNull
     public String getLocation() {
         return location;
     }

@@ -4,6 +4,7 @@ import net.minestom.server.MinecraftServer;
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.ServerPacketIdentifier;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 public class PluginMessagePacket implements ServerPacket {
 
@@ -11,7 +12,7 @@ public class PluginMessagePacket implements ServerPacket {
     public byte[] data;
 
     @Override
-    public void write(BinaryWriter writer) {
+    public void write(@NotNull BinaryWriter writer) {
         writer.writeSizedString(channel);
         writer.writeBytes(data);
     }
@@ -22,9 +23,9 @@ public class PluginMessagePacket implements ServerPacket {
     }
 
     /**
-     * Get the current server brand name packet
+     * Gets the current server brand name packet.
      * <p>
-     * Sent to all players when the name changes
+     * Sent to all players when the name changes.
      *
      * @return the current brand name packet
      */

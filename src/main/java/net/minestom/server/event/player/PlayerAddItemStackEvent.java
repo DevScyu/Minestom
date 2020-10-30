@@ -3,45 +3,47 @@ package net.minestom.server.event.player;
 import net.minestom.server.entity.Player;
 import net.minestom.server.event.CancellableEvent;
 import net.minestom.server.item.ItemStack;
-import net.minestom.server.utils.item.ItemStackUtils;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * Called as a result of {@link net.minestom.server.inventory.PlayerInventory#addItemStack(ItemStack)}
+ * Called as a result of {@link net.minestom.server.inventory.PlayerInventory#addItemStack(ItemStack)}.
  */
 public class PlayerAddItemStackEvent extends CancellableEvent {
 
     private final Player player;
     private ItemStack itemStack;
 
-    public PlayerAddItemStackEvent(Player player, ItemStack itemStack) {
+    public PlayerAddItemStackEvent(@NotNull Player player, @NotNull ItemStack itemStack) {
         this.player = player;
         this.itemStack = itemStack;
     }
 
     /**
-     * Get the player who has an item stack added to his inventory
+     * Gets the player who has an item stack added to his inventory.
      *
      * @return the player
      */
+    @NotNull
     public Player getPlayer() {
         return player;
     }
 
     /**
-     * Get the item stack which will be added
+     * Gets the item stack which will be added.
      *
      * @return the item stack
      */
+    @NotNull
     public ItemStack getItemStack() {
         return itemStack;
     }
 
     /**
-     * Change the item stack which will be added
+     * Changes the item stack which will be added.
      *
      * @param itemStack the new item stack
      */
-    public void setItemStack(ItemStack itemStack) {
-        this.itemStack = ItemStackUtils.notNull(itemStack);
+    public void setItemStack(@NotNull ItemStack itemStack) {
+        this.itemStack =itemStack;
     }
 }

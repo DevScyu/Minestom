@@ -6,69 +6,73 @@ import net.minestom.server.entity.Player;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.network.packet.server.play.EntityEquipmentPacket;
 import net.minestom.server.network.player.PlayerConnection;
+import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Represent an entity which can have item in hand and armor slots
+ * Represents an {@link Entity} which can have {@link ItemStack} in hands and armor slots.
  */
 public interface EquipmentHandler {
 
     /**
-     * Get the item in main hand
+     * Gets the {@link ItemStack} in main hand.
      *
-     * @return the item in main hand
+     * @return the {@link ItemStack} in main hand
      */
+    @NotNull
     ItemStack getItemInMainHand();
 
     /**
-     * Change the main hand item
+     * Changes the main hand {@link ItemStack}.
      *
-     * @param itemStack the main hand item
+     * @param itemStack the main hand {@link ItemStack}
      */
-    void setItemInMainHand(ItemStack itemStack);
+    void setItemInMainHand(@NotNull ItemStack itemStack);
 
     /**
-     * Get the item in off hand
+     * Gets the {@link ItemStack} in off hand.
      *
      * @return the item in off hand
      */
+    @NotNull
     ItemStack getItemInOffHand();
 
     /**
-     * Change the off hand item
+     * Changes the off hand {@link ItemStack}.
      *
-     * @param itemStack the off hand item
+     * @param itemStack the off hand {@link ItemStack}
      */
-    void setItemInOffHand(ItemStack itemStack);
+    void setItemInOffHand(@NotNull ItemStack itemStack);
 
     /**
-     * Get the item in the specific hand
+     * Gets the {@link ItemStack} in the specific hand.
      *
-     * @param hand the hand to get the item from
-     * @return the item in {@code hand}
+     * @param hand the Hand to get the {@link ItemStack} from
+     * @return the {@link ItemStack} in {@code hand}
      */
-    default ItemStack getItemInHand(Player.Hand hand) {
+    @NotNull
+    default ItemStack getItemInHand(@NotNull Player.Hand hand) {
         switch (hand) {
             case MAIN:
                 return getItemInMainHand();
-
             case OFF:
                 return getItemInOffHand();
-
             default:
                 return null;
         }
     }
 
     /**
-     * Change the item in the specific hand
+     * Changes the {@link ItemStack} in the specific hand.
      *
      * @param hand  the hand to set the item to
-     * @param stack the itemstack to set
+     * @param stack the {@link ItemStack} to set
      */
-    default void setItemInHand(Player.Hand hand, ItemStack stack) {
+    default void setItemInHand(@NotNull Player.Hand hand, @NotNull ItemStack stack) {
         switch (hand) {
             case MAIN:
                 setItemInMainHand(stack);
@@ -81,68 +85,73 @@ public interface EquipmentHandler {
     }
 
     /**
-     * Get the helmet
+     * Gets the helmet.
      *
      * @return the helmet
      */
+    @NotNull
     ItemStack getHelmet();
 
     /**
-     * Change the helmet
+     * Changes the helmet.
      *
      * @param itemStack the helmet
      */
-    void setHelmet(ItemStack itemStack);
+    void setHelmet(@NotNull ItemStack itemStack);
 
     /**
-     * Get the chestplate
+     * Gets the chestplate.
      *
      * @return the chestplate
      */
+    @NotNull
     ItemStack getChestplate();
 
     /**
-     * Change the chestplate
+     * Changes the chestplate.
      *
      * @param itemStack the chestplate
      */
-    void setChestplate(ItemStack itemStack);
+    void setChestplate(@NotNull ItemStack itemStack);
 
     /**
-     * Get the leggings
+     * Gets the leggings.
      *
      * @return the leggings
      */
+    @NotNull
     ItemStack getLeggings();
 
     /**
-     * Change the leggings
+     * Changes the leggings.
      *
      * @param itemStack the leggings
      */
-    void setLeggings(ItemStack itemStack);
+    void setLeggings(@NotNull ItemStack itemStack);
 
     /**
-     * Get the boots
+     * Gets the boots.
      *
      * @return the boots
      */
+    @NotNull
     ItemStack getBoots();
 
     /**
-     * Change the boots
+     * Changes the boots.
      *
      * @param itemStack the boots
      */
-    void setBoots(ItemStack itemStack);
+    void setBoots(@NotNull ItemStack itemStack);
 
     /**
-     * Get the equipment in a specific slot
+     * Gets the equipment in a specific slot.
      *
      * @param slot the equipment to get the item from
-     * @return the equipment item
+     * @return the equipment {@link ItemStack}
      */
-    default ItemStack getEquipment(EntityEquipmentPacket.Slot slot) {
+    @NotNull
+    default ItemStack getEquipment(@NotNull EntityEquipmentPacket.Slot slot) {
         switch (slot) {
             case MAIN_HAND:
                 return getItemInMainHand();
@@ -162,11 +171,11 @@ public interface EquipmentHandler {
     }
 
     /**
-     * Send all the equipments to a {@link PlayerConnection}
+     * Sends all the equipments to a {@link PlayerConnection}.
      *
      * @param connection the connection to send the equipments to
      */
-    default void syncEquipments(PlayerConnection connection) {
+    default void syncEquipments(@NotNull PlayerConnection connection) {
         final EntityEquipmentPacket entityEquipmentPacket = getEquipmentsPacket();
         if (entityEquipmentPacket == null)
             return;
@@ -174,7 +183,7 @@ public interface EquipmentHandler {
     }
 
     /**
-     * Send all the equipments to all viewers
+     * Sends all the equipments to all viewers.
      */
     default void syncEquipments() {
         if (!(this instanceof Viewable))
@@ -190,11 +199,11 @@ public interface EquipmentHandler {
     }
 
     /**
-     * Send a specific equipment to viewers
+     * Sends a specific equipment to viewers.
      *
      * @param slot the slot of the equipment
      */
-    default void syncEquipment(EntityEquipmentPacket.Slot slot) {
+    default void syncEquipment(@NotNull EntityEquipmentPacket.Slot slot) {
         if (!(this instanceof Entity))
             throw new IllegalStateException("Only accessible for Entity");
 
@@ -212,13 +221,14 @@ public interface EquipmentHandler {
     }
 
     /**
-     * Get the packet with all the equipments
+     * Gets the packet with all the equipments.
      *
-     * @return the packet with the equipments
+     * @return the packet with the equipments, null if all equipments are air
+     * @throws IllegalStateException if 'this' is not an {@link Entity}
      */
+    @Nullable
     default EntityEquipmentPacket getEquipmentsPacket() {
-        if (!(this instanceof Entity))
-            throw new IllegalStateException("Only accessible for Entity");
+        Check.stateCondition(!(this instanceof Entity), "Only accessible for Entity");
 
         Entity entity = (Entity) this;
 

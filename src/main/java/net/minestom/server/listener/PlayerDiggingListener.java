@@ -13,10 +13,16 @@ import net.minestom.server.item.StackingRule;
 import net.minestom.server.network.packet.client.play.ClientPlayerDiggingPacket;
 import net.minestom.server.network.packet.server.play.AcknowledgePlayerDiggingPacket;
 import net.minestom.server.network.packet.server.play.EntityEffectPacket;
-import net.minestom.server.potion.PotionType;
+import net.minestom.server.network.packet.server.play.RemoveEntityEffectPacket;
+import net.minestom.server.potion.PotionEffect;
 import net.minestom.server.utils.BlockPosition;
 
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+
 public class PlayerDiggingListener {
+
+    private static final List<Player> playersEffect = new CopyOnWriteArrayList<>();
 
     public static void playerDiggingListener(ClientPlayerDiggingPacket packet, Player player) {
         final ClientPlayerDiggingPacket.Status status = packet.status;
@@ -40,31 +46,30 @@ public class PlayerDiggingListener {
                         Block.fromStateId(blockStateId).breaksInstantaneously();
 
                 if (instantBreak) {
+                    // No need to check custom block
                     breakBlock(instance, player, blockPosition, blockStateId);
                 } else {
                     final CustomBlock customBlock = instance.getCustomBlock(blockPosition.getX(), blockPosition.getY(), blockPosition.getZ());
-                    if (customBlock != null) {
-                        // Custom block has a custom break time, allow for digging event
-                        PlayerStartDiggingEvent playerStartDiggingEvent = new PlayerStartDiggingEvent(player, blockPosition, customBlock);
-                        player.callEvent(PlayerStartDiggingEvent.class, playerStartDiggingEvent);
-                        if (!playerStartDiggingEvent.isCancelled()) {
+                    final int customBlockId = customBlock == null ? 0 : customBlock.getCustomBlockId();
 
-                            // Start digging the block
-                            if (customBlock.enableCustomBreakDelay()) {
-                                customBlock.startDigging(instance, blockPosition, player);
-                                addEffect(player);
-                            }
+                    PlayerStartDiggingEvent playerStartDiggingEvent = new PlayerStartDiggingEvent(player, blockPosition, blockStateId, customBlockId);
+                    player.callEvent(PlayerStartDiggingEvent.class, playerStartDiggingEvent);
 
-                            sendAcknowledgePacket(player, blockPosition, customBlock.getDefaultBlockStateId(),
-                                    ClientPlayerDiggingPacket.Status.STARTED_DIGGING, true);
-                        } else {
-                            // Unsuccessful digging
-                            sendAcknowledgePacket(player, blockPosition, customBlock.getDefaultBlockStateId(),
-                                    ClientPlayerDiggingPacket.Status.STARTED_DIGGING, false);
+                    if (playerStartDiggingEvent.isCancelled()) {
+                        addEffect(player);
+
+                        // Unsuccessful digging
+                        sendAcknowledgePacket(player, blockPosition, blockStateId,
+                                ClientPlayerDiggingPacket.Status.STARTED_DIGGING, false);
+                    } else if (customBlock != null) {
+                        // Start digging the custom block
+                        if (customBlock.enableCustomBreakDelay()) {
+                            customBlock.startDigging(instance, blockPosition, player);
+                            addEffect(player);
                         }
-                    } else {
-                        // Player is not mining a custom block, be sure that he doesn't have the effect
-                        player.resetTargetBlock();
+
+                        sendAcknowledgePacket(player, blockPosition, blockStateId,
+                                ClientPlayerDiggingPacket.Status.STARTED_DIGGING, true);
                     }
                 }
                 break;
@@ -76,7 +81,15 @@ public class PlayerDiggingListener {
                         ClientPlayerDiggingPacket.Status.CANCELLED_DIGGING, true);
                 break;
             case FINISHED_DIGGING:
-                breakBlock(instance, player, blockPosition, blockStateId);
+                final CustomBlock customBlock = instance.getCustomBlock(blockPosition);
+                if (customBlock != null && customBlock.enableCustomBreakDelay()) {
+                    // Is not supposed to happen, probably a bug
+                    sendAcknowledgePacket(player, blockPosition, blockStateId,
+                            ClientPlayerDiggingPacket.Status.FINISHED_DIGGING, false);
+                } else {
+                    // Vanilla block
+                    breakBlock(instance, player, blockPosition, blockStateId);
+                }
                 break;
             case DROP_ITEM_STACK:
                 final ItemStack droppedItemStack = player.getInventory().getItemInMainHand().clone();
@@ -121,7 +134,7 @@ public class PlayerDiggingListener {
         // Finished digging, remove effect if any
         player.resetTargetBlock();
 
-        // Unverified block break, client is fully responsive
+        // Unverified block break, client is fully responsible
         final boolean result = instance.breakBlock(player, blockPosition);
 
         final int updatedBlockId = result ? 0 : blockStateId;
@@ -154,16 +167,53 @@ public class PlayerDiggingListener {
         }
     }
 
+    /**
+     * Adds the effect {@link PotionEffect#MINING_FATIGUE} to the player.
+     * <p>
+     * Used for {@link CustomBlock} break delay or when the {@link PlayerStartDiggingEvent} is cancelled
+     * to remove the player break animation.
+     *
+     * @param player the player to add the effect to
+     */
     private static void addEffect(Player player) {
+        playersEffect.add(player);
+
         EntityEffectPacket entityEffectPacket = new EntityEffectPacket();
         entityEffectPacket.entityId = player.getEntityId();
-        entityEffectPacket.effect = PotionType.AWKWARD;
+        entityEffectPacket.effect = PotionEffect.MINING_FATIGUE;
         entityEffectPacket.amplifier = -1;
         entityEffectPacket.duration = 0;
         entityEffectPacket.flags = 0;
         player.getPlayerConnection().sendPacket(entityEffectPacket);
     }
 
+    /**
+     * Used to remove the affect from {@link #addEffect(Player)}.
+     * <p>
+     * Called when the player cancelled or finished digging the {@link CustomBlock}.
+     *
+     * @param player the player to remove the effect to
+     */
+    public static void removeEffect(Player player) {
+        if (playersEffect.contains(player)) {
+            playersEffect.remove(player);
+
+            RemoveEntityEffectPacket removeEntityEffectPacket = new RemoveEntityEffectPacket();
+            removeEntityEffectPacket.entityId = player.getEntityId();
+            removeEntityEffectPacket.effect = PotionEffect.MINING_FATIGUE;
+            player.getPlayerConnection().sendPacket(removeEntityEffectPacket);
+        }
+    }
+
+    /**
+     * Sends an {@link AcknowledgePlayerDiggingPacket} to a connection.
+     *
+     * @param player        the player
+     * @param blockPosition the block position
+     * @param blockStateId  the block state id
+     * @param status        the status of the digging
+     * @param success       true to notify of a success, false otherwise
+     */
     private static void sendAcknowledgePacket(Player player, BlockPosition blockPosition, int blockStateId,
                                               ClientPlayerDiggingPacket.Status status, boolean success) {
         AcknowledgePlayerDiggingPacket acknowledgePlayerDiggingPacket = new AcknowledgePlayerDiggingPacket();

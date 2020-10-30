@@ -6,6 +6,9 @@ import it.unimi.dsi.fastutil.shorts.Short2ObjectOpenHashMap;
 import net.minestom.server.utils.PrimitiveConversion;
 import net.minestom.server.utils.binary.BinaryReader;
 import net.minestom.server.utils.binary.BinaryWriter;
+import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,13 +22,13 @@ public class SerializableDataImpl extends DataImpl implements SerializableData {
      * Class name -> Class
      * Used to cache class instances so we don't load them by name every time
      */
-    private static ConcurrentHashMap<String, Class> nameToClassMap = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, Class> nameToClassMap = new ConcurrentHashMap<>();
 
     /**
      * Data key -> Class
      * Used to know the type of an element of this data object (for serialization purpose)
      */
-    private ConcurrentHashMap<String, Class> dataType = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Class> dataType = new ConcurrentHashMap<>();
 
     /**
      * Set a value to a specific key
@@ -39,15 +42,21 @@ public class SerializableDataImpl extends DataImpl implements SerializableData {
      * @throws UnsupportedOperationException if {@code type} is not registered in {@link DataManager}
      */
     @Override
-    public <T> void set(String key, T value, Class<T> type) {
-        if (DATA_MANAGER.getDataType(type) == null) {
-            throw new UnsupportedOperationException("Type " + type.getName() + " hasn't been registered in DataManager#registerType");
-        }
+    public <T> void set(@NotNull String key, @Nullable T value, @NotNull Class<T> type) {
+        if (value != null) {
+            if (DATA_MANAGER.getDataType(type) == null) {
+                throw new UnsupportedOperationException("Type " + type.getName() + " hasn't been registered in DataManager#registerType");
+            }
 
-        super.set(key, value, type);
-        this.dataType.put(key, type);
+            this.data.put(key, value);
+            this.dataType.put(key, type);
+        } else {
+            this.data.remove(key);
+            this.dataType.remove(key);
+        }
     }
 
+    @NotNull
     @Override
     public Data clone() {
         SerializableDataImpl data = new SerializableDataImpl();
@@ -56,8 +65,9 @@ public class SerializableDataImpl extends DataImpl implements SerializableData {
         return data;
     }
 
+    @NotNull
     @Override
-    public byte[] getSerializedData(Object2ShortMap<String> typeToIndexMap, boolean indexed) {
+    public byte[] getSerializedData(@NotNull Object2ShortMap<String> typeToIndexMap, boolean indexed) {
         // Get the current max index, it supposes that the index keep being incremented by 1
         short lastIndex = (short) typeToIndexMap.size();
 
@@ -112,7 +122,7 @@ public class SerializableDataImpl extends DataImpl implements SerializableData {
     }
 
     @Override
-    public void readSerializedData(BinaryReader reader, Object2ShortMap<String> typeToIndexMap) {
+    public void readSerializedData(@NotNull BinaryReader reader, @NotNull Object2ShortMap<String> typeToIndexMap) {
         // Map used to convert an index to the class name (opposite of typeToIndexMap)
         final Short2ObjectMap<String> indexToTypeMap = new Short2ObjectOpenHashMap<>(typeToIndexMap.size());
         {
@@ -146,13 +156,21 @@ public class SerializableDataImpl extends DataImpl implements SerializableData {
                         return null;
                     }
                 });
+
+                Check.notNull(type, "The class " + className + " does not exist and can therefore not be loaded.");
             }
 
             // Get the key
             final String name = reader.readSizedString();
 
             // Get the data
-            final Object value = DATA_MANAGER.getDataType(type).decode(reader);
+            final Object value;
+            {
+                final DataType dataType = DATA_MANAGER.getDataType(type);
+                Check.notNull(dataType, "The DataType for " + type + " does not exist or is not registered.");
+
+                value = dataType.decode(reader);
+            }
 
             // Set the data
             set(name, value, type);

@@ -3,22 +3,24 @@ package net.minestom.server.advancements;
 import net.minestom.server.utils.validate.Check;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Used to manages advancement tabs
+ * Used to manage all the registered {@link AdvancementTab}.
+ * <p>
+ * Use {@link #createTab(String, AdvancementRoot)} to create a tab with the appropriate {@link AdvancementRoot}.
  */
 public class AdvancementManager {
 
-    private final Map<String, AdvancementTab> advancementTabMap = new HashMap<>();
+    private final Map<String, AdvancementTab> advancementTabMap = new ConcurrentHashMap<>();
 
     /**
-     * Create a new tab with a single advancement
+     * Creates a new {@link AdvancementTab} with a single {@link AdvancementRoot}.
      *
      * @param rootIdentifier the root identifier
      * @param root           the root advancement
-     * @return the {@link AdvancementTab} created
+     * @return the newly created {@link AdvancementTab}
      * @throws IllegalStateException if a tab with the identifier {@code rootIdentifier} already exists
      */
     public AdvancementTab createTab(String rootIdentifier, AdvancementRoot root) {
@@ -30,17 +32,17 @@ public class AdvancementManager {
     }
 
     /**
-     * Get an advancement tab by its root identifier
+     * Gets an advancement tab by its root identifier.
      *
      * @param rootIdentifier the root identifier of the tab
-     * @return the {@link AdvancementTab} associated with the identifer, null if not any
+     * @return the {@link AdvancementTab} associated with the identifier, null if not any
      */
     public AdvancementTab getTab(String rootIdentifier) {
         return advancementTabMap.get(rootIdentifier);
     }
 
     /**
-     * Get all the created tab
+     * Gets all the created {@link AdvancementTab}.
      *
      * @return the collection containing all created {@link AdvancementTab}
      */

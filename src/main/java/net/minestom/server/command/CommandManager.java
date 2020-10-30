@@ -10,7 +10,7 @@ import net.minestom.server.command.builder.arguments.minecraft.*;
 import net.minestom.server.command.builder.arguments.minecraft.registry.ArgumentEnchantment;
 import net.minestom.server.command.builder.arguments.minecraft.registry.ArgumentEntityType;
 import net.minestom.server.command.builder.arguments.minecraft.registry.ArgumentParticle;
-import net.minestom.server.command.builder.arguments.minecraft.registry.ArgumentPotion;
+import net.minestom.server.command.builder.arguments.minecraft.registry.ArgumentPotionEffect;
 import net.minestom.server.command.builder.arguments.number.ArgumentDouble;
 import net.minestom.server.command.builder.arguments.number.ArgumentFloat;
 import net.minestom.server.command.builder.arguments.number.ArgumentInteger;
@@ -22,20 +22,27 @@ import net.minestom.server.network.packet.server.play.DeclareCommandsPacket;
 import net.minestom.server.utils.ArrayUtils;
 import net.minestom.server.utils.validate.Check;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Consumer;
 
-public class CommandManager {
+/**
+ * Manager used to register {@link Command} and {@link CommandProcessor}.
+ * <p>
+ * It is also possible to simulate a command using {@link #execute(CommandSender, String)}.
+ */
+public final class CommandManager {
 
     public static final String COMMAND_PREFIX = "/";
 
     private boolean running;
 
-    private ConsoleSender consoleSender = new ConsoleSender();
+    private final ConsoleSender consoleSender = new ConsoleSender();
 
-    private CommandDispatcher dispatcher = new CommandDispatcher();
-    private Map<String, CommandProcessor> commandProcessorMap = new HashMap<>();
+    private final CommandDispatcher dispatcher = new CommandDispatcher();
+    private final Map<String, CommandProcessor> commandProcessorMap = new HashMap<>();
 
     public CommandManager() {
         running = true;
@@ -57,39 +64,40 @@ public class CommandManager {
     }
 
     /**
-     * Stop the console responsive for the console commands processing
+     * Stops the console responsible for the console commands processing.
      * <p>
-     * WARNING: it cannot be re-run later
+     * WARNING: it cannot be re-run later.
      */
     public void stopConsoleThread() {
         running = false;
     }
 
     /**
-     * Register a command with all the auto-completion features
+     * Registers a {@link Command}.
      *
      * @param command the command to register
      */
-    public void register(Command command) {
+    public void register(@NotNull Command command) {
         this.dispatcher.register(command);
     }
 
     /**
-     * Get the command register by {@link #register(Command)}
+     * Gets the {@link Command} registered by {@link #register(Command)}.
      *
      * @param commandName the command name
      * @return the command associated with the name, null if not any
      */
-    public Command getCommand(String commandName) {
+    @Nullable
+    public Command getCommand(@NotNull String commandName) {
         return dispatcher.findCommand(commandName);
     }
 
     /**
-     * Register a simple command without auto-completion
+     * Registers a {@link CommandProcessor}.
      *
      * @param commandProcessor the command to register
      */
-    public void register(CommandProcessor commandProcessor) {
+    public void register(@NotNull CommandProcessor commandProcessor) {
         this.commandProcessorMap.put(commandProcessor.getCommandName().toLowerCase(), commandProcessor);
         // Register aliases
         final String[] aliases = commandProcessor.getAliases();
@@ -101,26 +109,28 @@ public class CommandManager {
     }
 
     /**
-     * Get the command register by {@link #register(CommandProcessor)}
+     * Gets the {@link CommandProcessor} registered by {@link #register(CommandProcessor)}.
      *
      * @param commandName the command name
      * @return the command associated with the name, null if not any
      */
-    public CommandProcessor getCommandProcessor(String commandName) {
+    @Nullable
+    public CommandProcessor getCommandProcessor(@NotNull String commandName) {
         return commandProcessorMap.get(commandName.toLowerCase());
     }
 
     /**
-     * Execute a command for a sender
+     * Executes a command for a {@link ConsoleSender}.
      *
      * @param sender  the sender of the command
      * @param command the raw command string (without the command prefix)
      * @return true if the command hadn't been cancelled and has been successful
      */
-    public boolean execute(CommandSender sender, String command) {
+    public boolean execute(@NotNull CommandSender sender, @NotNull String command) {
         Check.notNull(sender, "Source cannot be null");
         Check.notNull(command, "Command string cannot be null");
 
+        // Command event
         if (sender instanceof Player) {
             Player player = (Player) sender;
 
@@ -133,14 +143,15 @@ public class CommandManager {
             command = playerCommandEvent.getCommand();
         }
 
+        // Process the command
         try {
             // Check for rich-command
             this.dispatcher.execute(sender, command);
             return true;
         } catch (NullPointerException e) {
             // Check for legacy-command
-            final String[] splitted = command.split(" ");
-            final String commandName = splitted[0];
+            final String[] splitCommand = command.split(" ");
+            final String commandName = splitCommand[0];
             final CommandProcessor commandProcessor = commandProcessorMap.get(commandName.toLowerCase());
             if (commandProcessor == null)
                 return false;
@@ -154,39 +165,43 @@ public class CommandManager {
     }
 
     /**
-     * Get the console sender (which is used as a {@link CommandSender})
+     * Gets the {@link ConsoleSender} (which is used as a {@link CommandSender}).
      *
-     * @return the console sender
+     * @return the {@link ConsoleSender}
      */
+    @NotNull
     public ConsoleSender getConsoleSender() {
         return consoleSender;
     }
 
     /**
-     * Get the declare commands packet for a specific player
+     * Gets the {@link DeclareCommandsPacket} for a specific player.
      * <p>
-     * Can be used to update the player auto-completion list
+     * Can be used to update the {@link Player} auto-completion list.
      *
      * @param player the player to get the commands packet
      * @return the {@link DeclareCommandsPacket} for {@code player}
      */
-    public DeclareCommandsPacket createDeclareCommandsPacket(Player player) {
+    @NotNull
+    public DeclareCommandsPacket createDeclareCommandsPacket(@NotNull Player player) {
         return buildPacket(player);
     }
 
     /**
-     * Build the {@link DeclareCommandsPacket} for a player
+     * Builds the {@link DeclareCommandsPacket} for a {@link Player}.
      *
      * @param player the player to build the packet for
      * @return the commands packet for the specific player
      */
-    private DeclareCommandsPacket buildPacket(Player player) {
+    @NotNull
+    private DeclareCommandsPacket buildPacket(@NotNull Player player) {
         DeclareCommandsPacket declareCommandsPacket = new DeclareCommandsPacket();
 
         List<DeclareCommandsPacket.Node> nodes = new ArrayList<>();
         // Contains the children of the main node (all commands name)
         IntList rootChildren = new IntArrayList();
 
+        // Brigadier-like commands
         for (Command command : dispatcher.getCommands()) {
             // Check if player should see this command
             final CommandCondition commandCondition = command.getCondition();
@@ -267,7 +282,7 @@ public class CommandManager {
     }
 
     /**
-     * Add a command's syntaxes to the nodes list
+     * Adds the command's syntaxes to the nodes list.
      *
      * @param nodes        the nodes of the packet
      * @param cmdChildren  the main root of this command
@@ -275,12 +290,21 @@ public class CommandManager {
      * @param syntaxes     the syntaxes of the command
      * @param rootChildren the children of the main node (all commands name)
      */
-    private void createCommand(List<DeclareCommandsPacket.Node> nodes, IntList cmdChildren, String name, Collection<CommandSyntax> syntaxes, IntList rootChildren) {
+    private void createCommand(@NotNull List<DeclareCommandsPacket.Node> nodes,
+                               @NotNull IntList cmdChildren,
+                               @NotNull String name,
+                               @NotNull Collection<CommandSyntax> syntaxes,
+                               @NotNull IntList rootChildren) {
 
         DeclareCommandsPacket.Node literalNode = createMainNode(name, syntaxes.isEmpty());
 
         rootChildren.add(nodes.size());
         nodes.add(literalNode);
+
+        // Contains the arguments of the already-parsed syntaxes
+        List<Argument[]> syntaxesArguments = new ArrayList<>();
+        // Contains the nodes of an argument
+        Map<Argument, List<DeclareCommandsPacket.Node>> storedArgumentsNodes = new HashMap<>();
 
         for (CommandSyntax syntax : syntaxes) {
             // Represent the last nodes computed in the last iteration
@@ -295,8 +319,23 @@ public class CommandManager {
                 final boolean isFirst = i == 0;
                 final boolean isLast = i == arguments.length - 1;
 
+                boolean foundSharedPart = false;
+                for (Argument[] parsedArguments : syntaxesArguments) {
+                    if (ArrayUtils.sameStart(arguments, parsedArguments, i + 1)) {
+                        final Argument sharedArgument = parsedArguments[i];
+
+                        argChildren = new IntArrayList();
+                        lastNodes = storedArgumentsNodes.get(sharedArgument);
+                        foundSharedPart = true;
+                    }
+                }
+                if (foundSharedPart) {
+                    continue;
+                }
+
 
                 final List<DeclareCommandsPacket.Node> argumentNodes = toNodes(argument, isLast);
+                storedArgumentsNodes.put(argument, argumentNodes);
                 for (DeclareCommandsPacket.Node node : argumentNodes) {
                     final int childId = nodes.size();
 
@@ -310,7 +349,9 @@ public class CommandManager {
 
                     if (lastNodes != null) {
                         final int[] children = ArrayUtils.toArray(argChildren);
-                        lastNodes.forEach(n -> n.children = children);
+                        lastNodes.forEach(n -> n.children = n.children == null ?
+                                children :
+                                ArrayUtils.concatenateIntArrays(n.children, children));
                     }
 
                     nodes.add(node);
@@ -331,6 +372,8 @@ public class CommandManager {
                 }
             }
 
+            syntaxesArguments.add(arguments);
+
         }
         final int[] children = ArrayUtils.toArray(cmdChildren);
         //System.out.println("test " + children.length + " : " + children[0]);
@@ -340,7 +383,8 @@ public class CommandManager {
         }
     }
 
-    private DeclareCommandsPacket.Node createMainNode(String name, boolean executable) {
+    @NotNull
+    private DeclareCommandsPacket.Node createMainNode(@NotNull String name, boolean executable) {
         DeclareCommandsPacket.Node literalNode = new DeclareCommandsPacket.Node();
         literalNode.flags = getFlag(NodeType.LITERAL, executable, false, false);
         literalNode.name = name;
@@ -349,13 +393,14 @@ public class CommandManager {
     }
 
     /**
-     * Convert an argument to a node with the correct brigadier parser
+     * Converts an argument to a node with the correct brigadier parser.
      *
      * @param argument   the argument to convert
      * @param executable true if this is the last argument, false otherwise
      * @return the list of nodes that the argument require
      */
-    private List<DeclareCommandsPacket.Node> toNodes(Argument<?> argument, boolean executable) {
+    @NotNull
+    private List<DeclareCommandsPacket.Node> toNodes(@NotNull Argument<?> argument, boolean executable) {
         List<DeclareCommandsPacket.Node> nodes = new ArrayList<>();
 
         // You can uncomment this to test any brigadier parser on the client
@@ -479,7 +524,7 @@ public class CommandManager {
         } else if (argument instanceof ArgumentParticle) {
             DeclareCommandsPacket.Node argumentNode = simpleArgumentNode(nodes, argument, executable, false);
             argumentNode.parser = "minecraft:particle";
-        } else if (argument instanceof ArgumentPotion) {
+        } else if (argument instanceof ArgumentPotionEffect) {
             DeclareCommandsPacket.Node argumentNode = simpleArgumentNode(nodes, argument, executable, false);
             argumentNode.parser = "minecraft:mob_effect";
         } else if (argument instanceof ArgumentEntityType) {
@@ -505,12 +550,21 @@ public class CommandManager {
                 }
                 packetWriter.writeByte(mask);
             };
+        } else if (argument instanceof ArgumentItemStack) {
+            DeclareCommandsPacket.Node argumentNode = simpleArgumentNode(nodes, argument, executable, false);
+            argumentNode.parser = "minecraft:item_stack";
+        } else if (argument instanceof ArgumentNbtCompoundTag) {
+            DeclareCommandsPacket.Node argumentNode = simpleArgumentNode(nodes, argument, executable, false);
+            argumentNode.parser = "minecraft:nbt_compound_tag";
+        } else if (argument instanceof ArgumentNbtTag) {
+            DeclareCommandsPacket.Node argumentNode = simpleArgumentNode(nodes, argument, executable, false);
+            argumentNode.parser = "minecraft:nbt_tag";
         }
 
         return nodes;
     }
 
-    private byte getNumberProperties(ArgumentNumber<? extends Number> argumentNumber) {
+    private byte getNumberProperties(@NotNull ArgumentNumber<? extends Number> argumentNumber) {
         byte result = 0;
         if (argumentNumber.hasMin())
             result += 1;
@@ -520,15 +574,16 @@ public class CommandManager {
     }
 
     /**
-     * Build an argument nod and add it to the nodes list
+     * Builds an argument nod and add it to the nodes list.
      *
      * @param nodes      the current nodes list
      * @param argument   the argument
      * @param executable true if this will be the last argument, false otherwise
      * @return the created {@link DeclareCommandsPacket.Node}
      */
-    private DeclareCommandsPacket.Node simpleArgumentNode(List<DeclareCommandsPacket.Node> nodes,
-                                                          Argument<?> argument, boolean executable, boolean suggestion) {
+    @NotNull
+    private DeclareCommandsPacket.Node simpleArgumentNode(@NotNull List<DeclareCommandsPacket.Node> nodes,
+                                                          @NotNull Argument<?> argument, boolean executable, boolean suggestion) {
         DeclareCommandsPacket.Node argumentNode = new DeclareCommandsPacket.Node();
         nodes.add(argumentNode);
 
@@ -538,7 +593,7 @@ public class CommandManager {
         return argumentNode;
     }
 
-    private byte getFlag(NodeType type, boolean executable, boolean redirect, boolean suggestionType) {
+    private byte getFlag(@NotNull NodeType type, boolean executable, boolean redirect, boolean suggestionType) {
         byte result = (byte) type.mask;
 
         if (executable) {

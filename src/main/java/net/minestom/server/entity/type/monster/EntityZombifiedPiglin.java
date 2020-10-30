@@ -5,6 +5,7 @@ import net.minestom.server.entity.EntityType;
 import net.minestom.server.entity.type.Monster;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.function.Consumer;
 
@@ -18,6 +19,7 @@ public class EntityZombifiedPiglin extends EntityCreature implements Monster {
         setBoundingBox(0.6f, 1.95f, 0.6f);
     }
 
+    @NotNull
     @Override
     public Consumer<BinaryWriter> getMetadataConsumer() {
         return packet -> {
@@ -28,7 +30,7 @@ public class EntityZombifiedPiglin extends EntityCreature implements Monster {
     }
 
     @Override
-    protected void fillMetadataIndex(BinaryWriter packet, int index) {
+    protected void fillMetadataIndex(@NotNull BinaryWriter packet, int index) {
         super.fillMetadataIndex(packet, index);
         if (index == 15) {
             packet.writeByte((byte) 15);
@@ -42,7 +44,7 @@ public class EntityZombifiedPiglin extends EntityCreature implements Monster {
     }
 
     /**
-     * Get if the pig zombie is a baby
+     * Gets if the pig zombie is a baby.
      *
      * @return true if it is a baby, false otherwise
      */
@@ -51,7 +53,7 @@ public class EntityZombifiedPiglin extends EntityCreature implements Monster {
     }
 
     /**
-     * Set the pig zombie a baby or adult
+     * Sets the pig zombie a baby or adult.
      *
      * @param baby true to make it a baby, false otherwise
      */

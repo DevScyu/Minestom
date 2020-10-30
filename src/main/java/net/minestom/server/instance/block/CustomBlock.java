@@ -16,6 +16,8 @@ import net.minestom.server.network.packet.server.play.BlockBreakAnimationPacket;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.time.UpdateOption;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jglrxavpok.hephaistos.nbt.NBTCompound;
 
 import java.util.HashMap;
@@ -24,11 +26,15 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Represent the handler of a custom block type.
+ * Represents the handler of a custom block type which can be registered with {@link BlockManager#registerCustomBlock(CustomBlock)}.
  * <p>
  * There should be only one instance of this class for each custom block type,
  * every individual blocks will execute the callbacks present there. Each of which contains the
- * custom block position and the instance concerned
+ * custom block position and the instance concerned.
+ * <p>
+ * Each block in a chunk contains 2 id, the block state id (only visual) and a custom block id corresponding to
+ * {@link CustomBlock#getCustomBlockId()}. A custom block is responsible for the blocks tick, the custom break time feature,
+ * and some useful callbacks.
  */
 public abstract class CustomBlock {
 
@@ -41,7 +47,7 @@ public abstract class CustomBlock {
     private final Map<Instance, InstanceBreakData> instanceBreakDataMap = new HashMap<>();
 
     public int getBreakEntityId(Player firstBreaker) {
-        return firstBreaker.getEntityId() + 1;
+        return -firstBreaker.getEntityId();
     }
 
     private final short defaultBlockStateId;
@@ -51,17 +57,17 @@ public abstract class CustomBlock {
      * @param defaultBlockStateId the default block state id
      * @param identifier          the custom block identifier
      */
-    public CustomBlock(short defaultBlockStateId, String identifier) {
+    public CustomBlock(short defaultBlockStateId, @NotNull String identifier) {
         this.defaultBlockStateId = defaultBlockStateId;
         this.identifier = identifier;
     }
 
-    public CustomBlock(Block block, String identifier) {
+    public CustomBlock(@NotNull Block block, @NotNull String identifier) {
         this(block.getBlockId(), identifier);
     }
 
     /**
-     * Calling delay depends on {@link #getUpdateOption()} which should be overridden
+     * Calling delay depends on {@link #getUpdateOption()} which should be overridden.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
@@ -69,8 +75,8 @@ public abstract class CustomBlock {
      * @throws UnsupportedOperationException if {@link #getUpdateOption()}
      *                                       is not null but the update method is not overridden
      */
-    public void update(Instance instance, BlockPosition blockPosition, Data data) {
-        throw new UnsupportedOperationException("Update method not overridden");
+    public void update(@NotNull Instance instance, @NotNull BlockPosition blockPosition, @Nullable Data data) {
+        throw new UnsupportedOperationException("Update method not overridden, check #getUpdateOption()");
     }
 
     /**
@@ -78,35 +84,36 @@ public abstract class CustomBlock {
      * {@link #update(Instance, BlockPosition, Data)} execution.
      * <p>
      * If this is not null, {@link #update(Instance, BlockPosition, Data)}
-     * should be overridden or errors with occurs
+     * should be overridden or errors with occurs.
      *
-     * @return the update option of the block
+     * @return the update option of the block, null if not any
      */
+    @Nullable
     public UpdateOption getUpdateOption() {
         return null;
     }
 
     /**
-     * Called when a custom block has been placed
+     * Called when a custom block has been placed.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
      * @param data          the data associated with the block
      */
-    public abstract void onPlace(Instance instance, BlockPosition blockPosition, Data data);
+    public abstract void onPlace(@NotNull Instance instance, @NotNull BlockPosition blockPosition, @Nullable Data data);
 
     /**
-     * Called when a custom block has been destroyed or replaced
+     * Called when a custom block has been destroyed or replaced.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
      * @param data          the data associated with the block
      */
-    public abstract void onDestroy(Instance instance, BlockPosition blockPosition, Data data);
+    public abstract void onDestroy(@NotNull Instance instance, @NotNull BlockPosition blockPosition, @Nullable Data data);
 
     /**
      * Handles interactions with this block. Can also block normal item use (containers should block when opening the
-     * menu, this prevents the player from placing a block when opening it for instance)
+     * menu, this prevents the player from placing a block when opening it for instance).
      *
      * @param player        the player interacting
      * @param hand          the hand used to interact
@@ -114,7 +121,8 @@ public abstract class CustomBlock {
      * @param data          the data at this position
      * @return true if this block blocks normal item use, false otherwise
      */
-    public abstract boolean onInteract(Player player, Player.Hand hand, BlockPosition blockPosition, Data data);
+    public abstract boolean onInteract(@NotNull Player player, @NotNull Player.Hand hand,
+                                       @NotNull BlockPosition blockPosition, @Nullable Data data);
 
     /**
      * This id can be serialized in chunk file, meaning no duplicate should exist
@@ -135,7 +143,7 @@ public abstract class CustomBlock {
      * negative value allow to skip stages (-2 will skip 2 stages per tick)
      * @see #enableCustomBreakDelay() to enable/disable it
      */
-    public int getBreakDelay(Player player, BlockPosition position, byte stage, Set<Player> breakers) {
+    public int getBreakDelay(@NotNull Player player, @NotNull BlockPosition position, byte stage, Set<Player> breakers) {
         return 0;
     }
 
@@ -150,10 +158,10 @@ public abstract class CustomBlock {
     }
 
     /**
-     * Get if this block breaking time can be reduced by having multiple players
-     * digging it
+     * Gets if this block breaking time can be reduced by having multiple players
+     * digging it.
      * <p>
-     * WARNING: this should be constant, do not change this value halfway
+     * WARNING: this should be constant, do not change this value halfway.
      *
      * @return true to enable the multi-player breaking feature
      */
@@ -162,7 +170,7 @@ public abstract class CustomBlock {
     }
 
     /**
-     * Get if this {@link CustomBlock} requires any tick update
+     * Gets if this {@link CustomBlock} requires any tick update.
      *
      * @return true if {@link #getUpdateOption()} is not null and the value is positive
      */
@@ -182,7 +190,7 @@ public abstract class CustomBlock {
      * @param position the position at which the block is
      * @param touching the entity currently touching the block
      */
-    public void handleContact(Instance instance, BlockPosition position, Entity touching) {
+    public void handleContact(@NotNull Instance instance, @NotNull BlockPosition position, @NotNull Entity touching) {
     }
 
     /**
@@ -200,70 +208,74 @@ public abstract class CustomBlock {
 
     /**
      * The custom block identifier, used to retrieve the custom block object with
-     * {@link BlockManager#getCustomBlock(String)} and to set custom block in the instance
+     * {@link BlockManager#getCustomBlock(String)} and to set custom block in the instance.
      *
      * @return the custom block identifier
      */
+    @NotNull
     public String getIdentifier() {
         return identifier;
     }
 
     /**
-     * Initialises data for this block
+     * Initialises data for this block.
      *
      * @param blockPosition the position of the targeted block
      * @param data          data given to 'setBlock', can be null
      * @return Data for this block. Can be null, 'data', or a new object
      */
-    public Data createData(Instance instance, BlockPosition blockPosition, Data data) {
+    @Nullable
+    public Data createData(@NotNull Instance instance, @NotNull BlockPosition blockPosition, @Nullable Data data) {
         return data;
     }
 
     /**
-     * Update this block from a neighbor. By default calls 'update' if directNeighbor is true
+     * Updates this block from a neighbor. By default calls 'update' if directNeighbor is true.
      *
      * @param instance         current instance
      * @param thisPosition     this block's position
      * @param neighborPosition the neighboring block which triggered the update
      * @param directNeighbor   is the neighbor directly connected to this block? (No diagonals)
      */
-    public void updateFromNeighbor(Instance instance, BlockPosition thisPosition, BlockPosition neighborPosition, boolean directNeighbor) {
+    public void updateFromNeighbor(@NotNull Instance instance, @NotNull BlockPosition thisPosition,
+                                   @NotNull BlockPosition neighborPosition, boolean directNeighbor) {
         if (directNeighbor && hasUpdate()) {
             update(instance, thisPosition, instance.getBlockData(thisPosition));
         }
     }
 
     /**
-     * Called when a scheduled update on this block happens. By default, calls 'update'
+     * Called when a scheduled update on this block happens. By default, calls 'update'.
      *
      * @param instance  the instance of the block
      * @param position  the position of the block
      * @param blockData the data of the block
      */
-    public void scheduledUpdate(Instance instance, BlockPosition position, Data blockData) {
+    public void scheduledUpdate(@NotNull Instance instance, @NotNull BlockPosition position, @Nullable Data blockData) {
         update(instance, position, blockData);
     }
 
     /**
-     * Get the drag of this block
+     * Gets the drag of this block.
      * <p>
-     * It has to be between 0 and 1
+     * It has to be between 0 and 1.
      *
      * @return the drag of this block
      */
-    public float getDrag(Instance instance, BlockPosition blockPosition) {
+    public float getDrag(@NotNull Instance instance, @NotNull BlockPosition blockPosition) {
         return 0.5f;
     }
 
     /**
      * Allows custom block to write block entity data to a given NBT compound.
      * Used to send block entity data to the client over the network.
-     * Can also be used to save block entity data on disk for compatible chunk savers
+     * Can also be used to save block entity data on disk for compatible chunk savers.
      *
      * @param position  position of the block
      * @param blockData equivalent to <pre>instance.getBlockData(position)</pre>
+     * @param nbt       the nbt to write in the {@link net.minestom.server.network.packet.server.play.ChunkDataPacket}
      */
-    public void writeBlockEntity(BlockPosition position, Data blockData, NBTCompound nbt) {
+    public void writeBlockEntity(@NotNull BlockPosition position, @Nullable Data blockData, @NotNull NBTCompound nbt) {
     }
 
     /**
@@ -274,17 +286,18 @@ public abstract class CustomBlock {
      * @return 'true' if the explosion should happen on this block, 'false' to cancel the destruction.
      * Returning true does NOT block the explosion rays, ie it does not change the block explosion resistance
      */
-    public boolean onExplode(Instance instance, BlockPosition position, Data lootTableArguments) {
+    public boolean onExplode(@NotNull Instance instance, @NotNull BlockPosition position, Data lootTableArguments) {
         return true;
     }
 
     /**
-     * Return the loot table associated to this block. Return null to use vanilla behavior
+     * Returns the loot table associated to this block. Return null to use vanilla behavior.
      *
      * @param tableManager the loot table manager
      * @return the loot table associated to this block
      */
-    public LootTable getLootTable(LootTableManager tableManager) {
+    @Nullable
+    public LootTable getLootTable(@NotNull LootTableManager tableManager) {
         return null;
     }
 
@@ -292,13 +305,13 @@ public abstract class CustomBlock {
 
     /**
      * Called when a player start digging this custom block,
-     * process all necessary data if {@link #enableMultiPlayerBreaking()} is enabled
+     * process all necessary data if {@link #enableMultiPlayerBreaking()} is enabled.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
      * @param player        the player who started digging
      */
-    public void startDigging(Instance instance, BlockPosition blockPosition, Player player) {
+    public void startDigging(@NotNull Instance instance, @NotNull BlockPosition blockPosition, @NotNull Player player) {
         // Stay null if multi player breaking is disabled
         Set<Player> breakers = null;
 
@@ -329,13 +342,13 @@ public abstract class CustomBlock {
 
     /**
      * Called when a player stop digging a block,
-     * does remove the block break animation if he was the only breaker
+     * does remove the block break animation if he was the only breaker.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
      * @param player        the player who stopped digging
      */
-    public void stopDigging(Instance instance, BlockPosition blockPosition, Player player) {
+    public void stopDigging(@NotNull Instance instance, @NotNull BlockPosition blockPosition, @NotNull Player player) {
         if (enableMultiPlayerBreaking()) {
             // Remove cache data
             if (instanceBreakDataMap.containsKey(instance)) {
@@ -351,6 +364,7 @@ public abstract class CustomBlock {
                         final int entityId = instanceBreakData.breakIdMap.getInt(blockPosition);
 
                         final Chunk chunk = instance.getChunkAt(blockPosition);
+                        Check.notNull(chunk, "Tried to interact with an unloaded chunk.");
                         chunk.sendPacketToViewers(new BlockBreakAnimationPacket(entityId, blockPosition, (byte) -1));
 
                         // Clear cache
@@ -363,13 +377,14 @@ public abstract class CustomBlock {
             // Stop the breaking animation for the specific player id
             final Chunk chunk = instance.getChunkAt(blockPosition);
             final int entityId = getBreakEntityId(player);
+            Check.notNull(chunk, "Tried to interact with an unloaded chunk.");
             chunk.sendPacketToViewers(new BlockBreakAnimationPacket(entityId, blockPosition, (byte) -1));
         }
     }
 
     /**
      * Process one stage on the block, break it if it excess {@link #MAX_STAGE},
-     * only if {@link #enableMultiPlayerBreaking()} is enabled
+     * only if {@link #enableMultiPlayerBreaking()} is enabled.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
@@ -378,7 +393,8 @@ public abstract class CustomBlock {
      * @return true if the block can continue being digged
      * @throws IllegalStateException if {@link #enableMultiPlayerBreaking()} is disabled
      */
-    public synchronized boolean processStage(Instance instance, BlockPosition blockPosition, Player player, byte stageIncrease) {
+    public synchronized boolean processStage(@NotNull Instance instance, @NotNull BlockPosition blockPosition,
+                                             @NotNull Player player, byte stageIncrease) {
         Check.stateCondition(!enableMultiPlayerBreaking(),
                 "CustomBlock#processState requires having the multi player breaking feature enabled");
 
@@ -396,6 +412,7 @@ public abstract class CustomBlock {
 
                 // Send the block break animation
                 final Chunk chunk = instance.getChunkAt(blockPosition);
+                Check.notNull(chunk, "Tried to interact with an unloaded chunk.");
                 chunk.sendPacketToViewers(new BlockBreakAnimationPacket(entityId, blockPosition, stage));
 
                 // Refresh the stage
@@ -407,7 +424,7 @@ public abstract class CustomBlock {
         return false;
     }
 
-    public void removeDiggingInformation(Instance instance, BlockPosition blockPosition) {
+    public void removeDiggingInformation(@NotNull Instance instance, @NotNull BlockPosition blockPosition) {
         if (!enableMultiPlayerBreaking()) {
             return;
         }
@@ -420,14 +437,15 @@ public abstract class CustomBlock {
     }
 
     /**
-     * Get all the breakers of a block, only if {@link #enableMultiPlayerBreaking()} is enabled
+     * Gets all the breakers of a block, only if {@link #enableMultiPlayerBreaking()} is enabled.
      *
      * @param instance      the instance of the block
      * @param blockPosition the position of the block
      * @return the {@link Set} of breakers of a block
      * @throws IllegalStateException if {@link #enableMultiPlayerBreaking()} is disabled
      */
-    public Set<Player> getBreakers(Instance instance, BlockPosition blockPosition) {
+    @Nullable
+    public Set<Player> getBreakers(@NotNull Instance instance, @NotNull BlockPosition blockPosition) {
         Check.stateCondition(!enableMultiPlayerBreaking(),
                 "CustomBlock#getBreakers requires having the multi player breaking feature enabled");
 
@@ -439,13 +457,14 @@ public abstract class CustomBlock {
     }
 
     /**
-     * Get the block break stage at a position, only work if {@link #enableMultiPlayerBreaking()} is enabled
+     * Gets the block break stage at a position,
+     * only work if {@link #enableMultiPlayerBreaking()} is enabled.
      *
      * @param instance      the instance of the custom block
      * @param blockPosition the position of the custom block
      * @return the break stage at the position. Can also be 0 when nonexistent
      */
-    public byte getBreakStage(Instance instance, BlockPosition blockPosition) {
+    public byte getBreakStage(@NotNull Instance instance, @NotNull BlockPosition blockPosition) {
         Check.stateCondition(!enableMultiPlayerBreaking(),
                 "CustomBlock#getBreakStage requires having the multi player breaking feature enabled");
 
@@ -456,8 +475,8 @@ public abstract class CustomBlock {
     }
 
     /**
-     * Class used to store block break stage
-     * Only used if multi player breaking is enabled
+     * Class used to store block break stage.
+     * Only if multi player breaking is enabled.
      */
     private static class InstanceBreakData {
         // Contains all the breakers of a block
@@ -467,7 +486,7 @@ public abstract class CustomBlock {
         // Contains the entity id used by the block break packet
         private final Object2IntMap<BlockPosition> breakIdMap = new Object2IntOpenHashMap<>();
 
-        private void clear(BlockPosition blockPosition) {
+        private void clear(@NotNull BlockPosition blockPosition) {
             this.breakersMap.remove(blockPosition);
             this.breakStageMap.removeByte(blockPosition);
             this.breakIdMap.removeInt(blockPosition);

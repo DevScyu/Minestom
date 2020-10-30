@@ -1,26 +1,27 @@
 package net.minestom.server.network.packet.server.play;
 
-import net.minestom.server.chat.ColoredText;
+import net.minestom.server.chat.JsonMessage;
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.ServerPacketIdentifier;
 import net.minestom.server.utils.binary.BinaryWriter;
+import org.jetbrains.annotations.NotNull;
 
 public class TitlePacket implements ServerPacket {
 
     public Action action;
 
-    public ColoredText titleText;
+    public JsonMessage titleText; // Only text
 
-    public ColoredText subtitleText;
+    public JsonMessage subtitleText; // Only text
 
-    public ColoredText actionBarText;
+    public JsonMessage actionBarText; // Only text
 
     public int fadeIn;
     public int stay;
     public int fadeOut;
 
     @Override
-    public void write(BinaryWriter writer) {
+    public void write(@NotNull BinaryWriter writer) {
         writer.writeVarInt(action.ordinal());
 
         switch (action) {

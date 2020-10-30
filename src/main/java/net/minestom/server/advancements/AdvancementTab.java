@@ -8,15 +8,23 @@ import net.minestom.server.network.player.PlayerConnection;
 import net.minestom.server.utils.PacketUtils;
 import net.minestom.server.utils.advancement.AdvancementUtils;
 import net.minestom.server.utils.validate.Check;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
 /**
- * Represents a tab which can be shared between multiple players
+ * Represents a tab which can be shared between multiple players.
+ * <p>
+ * Each tab requires a root advancement and all succeeding advancements need to have a parent in the tab.
+ * You can create a new advancement using {@link #createAdvancement(String, Advancement, Advancement)}.
+ * <p>
+ * Be sure to use {@link #addViewer(Player)} and {@link #removeViewer(Player)} to control which players can see the tab.
+ * (all viewers will see the same tab, with the same amount of validated advancements etc... so shared).
  */
 public class AdvancementTab implements Viewable {
 
-    private static final Map<Player, Set<AdvancementTab>> PLAYER_TAB_MAP = new HashMap<>();
+    private static final Map<UUID, Set<AdvancementTab>> PLAYER_TAB_MAP = new HashMap<>();
 
     private final Set<Player> viewers = new HashSet<>();
 
@@ -29,9 +37,9 @@ public class AdvancementTab implements Viewable {
     protected ByteBuf createBuffer;
     // the packet used to clear the tab (used to remove it and to update an advancement)
     // will never change (since the root identifier is always the same)
-    protected ByteBuf removeBuffer;
+    protected final ByteBuf removeBuffer;
 
-    protected AdvancementTab(String rootIdentifier, AdvancementRoot root) {
+    protected AdvancementTab(@NotNull String rootIdentifier, @NotNull AdvancementRoot root) {
         this.root = root;
 
         cacheAdvancement(rootIdentifier, root, null);
@@ -41,32 +49,35 @@ public class AdvancementTab implements Viewable {
     }
 
     /**
-     * Get all the tabs of a viewer
+     * Gets all the tabs of a viewer.
      *
      * @param player the player to get the tabs from
-     * @return all the advancement tabs that the player sees
+     * @return all the advancement tabs that the player sees, can be null
+     * if the player doesn't see anything
      */
-    public static Set<AdvancementTab> getTabs(Player player) {
-        return PLAYER_TAB_MAP.getOrDefault(player, null);
+    @Nullable
+    public static Set<AdvancementTab> getTabs(@NotNull Player player) {
+        return PLAYER_TAB_MAP.getOrDefault(player.getUuid(), null);
     }
 
     /**
-     * Get the root advancement of this tab
+     * Gets the root advancement of this tab.
      *
      * @return the root advancement
      */
+    @NotNull
     public AdvancementRoot getRoot() {
         return root;
     }
 
     /**
-     * Create and add an advancement into this tab
+     * Creates and add an advancement into this tab.
      *
      * @param identifier  the unique identifier
      * @param advancement the advancement to add
      * @param parent      the parent of this advancement, it cannot be null
      */
-    public void createAdvancement(String identifier, Advancement advancement, Advancement parent) {
+    public void createAdvancement(@NotNull String identifier, @NotNull Advancement advancement, @NotNull Advancement parent) {
         Check.argCondition(identifier == null, "the advancement identifier cannot be null");
         Check.stateCondition(!advancementMap.containsKey(parent),
                 "You tried to set a parent which doesn't exist or isn't registered");
@@ -78,17 +89,18 @@ public class AdvancementTab implements Viewable {
     }
 
     /**
-     * Update the packet buffer
+     * Updates the packet buffer.
      */
     protected void updatePacket() {
         this.createBuffer = PacketUtils.writePacket(createPacket());
     }
 
     /**
-     * Build the packet which build the whole advancement tab
+     * Builds the packet which build the whole advancement tab.
      *
      * @return the packet adding this advancement tab and all its advancements
      */
+    @NotNull
     protected AdvancementsPacket createPacket() {
         AdvancementsPacket advancementsPacket = new AdvancementsPacket();
         advancementsPacket.resetAdvancements = false;
@@ -109,13 +121,13 @@ public class AdvancementTab implements Viewable {
     }
 
     /**
-     * Cache an advancement
+     * Caches an advancement.
      *
      * @param identifier  the identifier of the advancement
      * @param advancement the advancement
-     * @param parent      the parent of this advancement
+     * @param parent      the parent of this advancement, only null for the root advancement
      */
-    private void cacheAdvancement(String identifier, Advancement advancement, Advancement parent) {
+    private void cacheAdvancement(@NotNull String identifier, @NotNull Advancement advancement, @Nullable Advancement parent) {
         Check.stateCondition(advancement.getTab() != null,
                 "You tried to add an advancement already linked to a tab");
         advancement.setTab(this);
@@ -128,7 +140,7 @@ public class AdvancementTab implements Viewable {
     }
 
     @Override
-    public synchronized boolean addViewer(Player player) {
+    public synchronized boolean addViewer(@NotNull Player player) {
         final boolean result = viewers.add(player);
         if (!result) {
             return false;
@@ -145,7 +157,7 @@ public class AdvancementTab implements Viewable {
     }
 
     @Override
-    public synchronized boolean removeViewer(Player player) {
+    public synchronized boolean removeViewer(@NotNull Player player) {
         if (!isViewer(player)) {
             return false;
         }
@@ -153,41 +165,45 @@ public class AdvancementTab implements Viewable {
         final PlayerConnection playerConnection = player.getPlayerConnection();
 
         // Remove the tab
-        playerConnection.sendPacket(removeBuffer, true);
+        if (!player.isRemoved()) {
+            playerConnection.sendPacket(removeBuffer, true);
+        }
 
         removePlayer(player);
 
         return viewers.remove(player);
     }
 
+    @NotNull
     @Override
     public Set<Player> getViewers() {
         return viewers;
     }
 
     /**
-     * Add the tab to the player set
+     * Adds the tab to the player set.
      *
      * @param player the player
      */
-    private void addPlayer(Player player) {
-        Set<AdvancementTab> tabs = PLAYER_TAB_MAP.computeIfAbsent(player, p -> new HashSet<>());
+    private void addPlayer(@NotNull Player player) {
+        Set<AdvancementTab> tabs = PLAYER_TAB_MAP.computeIfAbsent(player.getUuid(), p -> new HashSet<>());
         tabs.add(this);
     }
 
     /**
-     * Remove the tab from the player set
+     * Removes the tab from the player set.
      *
      * @param player the player
      */
-    private void removePlayer(Player player) {
-        if (!PLAYER_TAB_MAP.containsKey(player)) {
+    private void removePlayer(@NotNull Player player) {
+        final UUID uuid = player.getUuid();
+        if (!PLAYER_TAB_MAP.containsKey(uuid)) {
             return;
         }
-        Set<AdvancementTab> tabs = PLAYER_TAB_MAP.get(player);
+        Set<AdvancementTab> tabs = PLAYER_TAB_MAP.get(uuid);
         tabs.remove(this);
         if (tabs.isEmpty()) {
-            PLAYER_TAB_MAP.remove(player);
+            PLAYER_TAB_MAP.remove(uuid);
         }
     }
 

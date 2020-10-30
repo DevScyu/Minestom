@@ -1,11 +1,13 @@
 package net.minestom.server.network.packet.server.play;
 
 import net.minestom.server.advancements.FrameType;
-import net.minestom.server.chat.ColoredText;
+import net.minestom.server.chat.JsonMessage;
 import net.minestom.server.item.ItemStack;
 import net.minestom.server.network.packet.server.ServerPacket;
 import net.minestom.server.network.packet.server.ServerPacketIdentifier;
 import net.minestom.server.utils.binary.BinaryWriter;
+import net.minestom.server.utils.binary.Writeable;
+import org.jetbrains.annotations.NotNull;
 
 public class AdvancementsPacket implements ServerPacket {
 
@@ -15,7 +17,7 @@ public class AdvancementsPacket implements ServerPacket {
     public ProgressMapping[] progressMappings;
 
     @Override
-    public void write(BinaryWriter writer) {
+    public void write(@NotNull BinaryWriter writer) {
         writer.writeBoolean(resetAdvancements);
 
         writer.writeVarInt(advancementMappings.length);
@@ -38,25 +40,27 @@ public class AdvancementsPacket implements ServerPacket {
     /**
      * AdvancementMapping maps the namespaced ID to the Advancement.
      */
-    public static class AdvancementMapping {
+    public static class AdvancementMapping implements Writeable {
 
         public String key;
         public Advancement value;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeSizedString(key);
             value.write(writer);
         }
 
     }
 
-    public static class Advancement {
+    public static class Advancement implements Writeable {
         public String parentIdentifier;
         public DisplayData displayData;
         public String[] criterions;
         public Requirement[] requirements;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             // hasParent
             writer.writeBoolean(parentIdentifier != null);
             if (parentIdentifier != null) {
@@ -79,9 +83,9 @@ public class AdvancementsPacket implements ServerPacket {
         }
     }
 
-    public static class DisplayData {
-        public ColoredText title;
-        public ColoredText description;
+    public static class DisplayData implements Writeable {
+        public JsonMessage title; // Only text
+        public JsonMessage description; // Only text
         public ItemStack icon;
         public FrameType frameType;
         public int flags;
@@ -89,7 +93,8 @@ public class AdvancementsPacket implements ServerPacket {
         public float x;
         public float y;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeSizedString(title.toString());
             writer.writeSizedString(description.toString());
             writer.writeItemStack(icon);
@@ -104,11 +109,12 @@ public class AdvancementsPacket implements ServerPacket {
 
     }
 
-    public static class Requirement {
+    public static class Requirement implements Writeable {
 
         public String[] requirements;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeVarInt(requirements.length);
             for (String requirement : requirements) {
                 writer.writeSizedString(requirement);
@@ -116,20 +122,22 @@ public class AdvancementsPacket implements ServerPacket {
         }
     }
 
-    public static class ProgressMapping {
+    public static class ProgressMapping implements Writeable {
         public String key;
         public AdvancementProgress value;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeSizedString(key);
             value.write(writer);
         }
     }
 
-    public static class AdvancementProgress {
+    public static class AdvancementProgress implements Writeable {
         public Criteria[] criteria;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeVarInt(criteria.length);
             for (Criteria criterion : criteria) {
                 criterion.write(writer);
@@ -137,21 +145,24 @@ public class AdvancementsPacket implements ServerPacket {
         }
     }
 
-    public static class Criteria {
+    public static class Criteria implements Writeable {
         public String criterionIdentifier;
         public CriterionProgress criterionProgress;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeSizedString(criterionIdentifier);
             criterionProgress.write(writer);
         }
+
     }
 
-    public static class CriterionProgress {
+    public static class CriterionProgress implements Writeable {
         public boolean achieved;
         public long dateOfAchieving;
 
-        private void write(BinaryWriter writer) {
+        @Override
+        public void write(@NotNull BinaryWriter writer) {
             writer.writeBoolean(achieved);
             if (dateOfAchieving != 0)
                 writer.writeLong(dateOfAchieving);

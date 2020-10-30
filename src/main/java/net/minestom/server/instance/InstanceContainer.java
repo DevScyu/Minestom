@@ -1,6 +1,5 @@
 package net.minestom.server.instance;
 
-import lombok.Setter;
 import net.minestom.server.MinecraftServer;
 import net.minestom.server.data.Data;
 import net.minestom.server.data.SerializableData;
@@ -11,7 +10,6 @@ import net.minestom.server.event.player.PlayerBlockBreakEvent;
 import net.minestom.server.instance.batch.BlockBatch;
 import net.minestom.server.instance.batch.ChunkBatch;
 import net.minestom.server.instance.block.Block;
-import net.minestom.server.instance.block.BlockProvider;
 import net.minestom.server.instance.block.CustomBlock;
 import net.minestom.server.instance.block.rule.BlockPlacementRule;
 import net.minestom.server.network.packet.server.play.BlockChangePacket;
@@ -23,22 +21,23 @@ import net.minestom.server.storage.StorageLocation;
 import net.minestom.server.utils.BlockPosition;
 import net.minestom.server.utils.Position;
 import net.minestom.server.utils.block.CustomBlockUtils;
+import net.minestom.server.utils.callback.OptionalCallback;
 import net.minestom.server.utils.chunk.ChunkCallback;
+import net.minestom.server.utils.chunk.ChunkSupplier;
 import net.minestom.server.utils.chunk.ChunkUtils;
-import net.minestom.server.utils.thread.MinestomThread;
 import net.minestom.server.utils.time.TimeUnit;
 import net.minestom.server.utils.validate.Check;
 import net.minestom.server.world.DimensionType;
 import net.minestom.server.world.biomes.Biome;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.function.BiFunction;
 
 /**
  * InstanceContainer is an instance that contains chunks in contrary to SharedInstance.
@@ -48,22 +47,30 @@ public class InstanceContainer extends Instance {
     private static final String UUID_KEY = "uuid";
     private static final String DATA_KEY = "data";
 
+    // the storage location of this instance, can be null
     private StorageLocation storageLocation;
 
-    private List<SharedInstance> sharedInstances = new CopyOnWriteArrayList<>();
+    // the shared instances assigned to this instance
+    private final List<SharedInstance> sharedInstances = new CopyOnWriteArrayList<>();
 
+    // the chunk generator used, can be null
     private ChunkGenerator chunkGenerator;
+    // (chunk index -> chunk) map, contains all the chunks in the instance
     private final ConcurrentHashMap<Long, Chunk> chunks = new ConcurrentHashMap<>();
+    // contains all the chunks to remove during the next instance tick
     protected final Set<Chunk> scheduledChunksToRemove = new HashSet<>();
 
-    private ReadWriteLock changingBlockLock = new ReentrantReadWriteLock();
-    private Map<BlockPosition, Block> currentlyChangingBlocks = new HashMap<>();
+    private final ReadWriteLock changingBlockLock = new ReentrantReadWriteLock();
+    private final Map<BlockPosition, Block> currentlyChangingBlocks = new HashMap<>();
+
+    // the chunk loader, used when trying to load/save a chunk from another source
     private IChunkLoader chunkLoader;
 
+    // used to automatically enable the chunk loading or not
     private boolean autoChunkLoad;
 
-    @Setter
-    private BiFunction<Integer, Integer, BlockProvider> chunkDecider;
+    // used to supply a new chunk object at a position when requested
+    private ChunkSupplier chunkSupplier;
 
     /**
      * Create an {@link InstanceContainer}
@@ -77,7 +84,12 @@ public class InstanceContainer extends Instance {
         super(uniqueId, dimensionType);
 
         this.storageLocation = storageLocation;
-        this.chunkLoader = new MinestomBasicChunkLoader(storageLocation);
+
+        // Set the default chunk supplier using DynamicChunk
+        setChunkSupplier(DynamicChunk::new);
+
+        // Set the default chunk loader which use the instance's StorageLocation and ChunkSupplier to save and load chunks
+        setChunkLoader(new MinestomBasicChunkLoader(this));
 
         // Get instance data from the saved data if a StorageLocation is defined
         if (storageLocation != null) {
@@ -125,11 +137,9 @@ public class InstanceContainer extends Instance {
             UNSAFE_setBlock(chunk, x, y, z, blockStateId, customBlock, data);
         } else {
             if (hasEnabledAutoChunkLoad()) {
-                final int chunkX = ChunkUtils.getChunkCoordinate((int) x);
-                final int chunkZ = ChunkUtils.getChunkCoordinate((int) z);
-                loadChunk(chunkX, chunkZ, c -> {
-                    UNSAFE_setBlock(c, x, y, z, blockStateId, customBlock, data);
-                });
+                final int chunkX = ChunkUtils.getChunkCoordinate(x);
+                final int chunkZ = ChunkUtils.getChunkCoordinate(z);
+                loadChunk(chunkX, chunkZ, c -> UNSAFE_setBlock(c, x, y, z, blockStateId, customBlock, data));
             } else {
                 throw new IllegalStateException("Tried to set a block to an unloaded chunk with auto chunk load disabled");
             }
@@ -150,6 +160,10 @@ public class InstanceContainer extends Instance {
      * @param data         the {@link Data}, null if none
      */
     private void UNSAFE_setBlock(Chunk chunk, int x, int y, int z, short blockStateId, CustomBlock customBlock, Data data) {
+        if (chunk.isReadOnly()) {
+            return;
+        }
+
         synchronized (chunk) {
 
             final boolean isCustomBlock = customBlock != null;
@@ -207,11 +221,12 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Has this block already changed since last update? Prevents StackOverflow with blocks trying to modify their position in onDestroy or onPlace
+     * Has this block already changed since last update?
+     * Prevents StackOverflow with blocks trying to modify their position in onDestroy or onPlace.
      *
      * @param blockPosition the block position
      * @param blockStateId  the block state id
-     * @return
+     * @return true if the block changed since the last update
      */
     private boolean isAlreadyChanged(BlockPosition blockPosition, short blockStateId) {
         final Block changedBlock = currentlyChangingBlocks.get(blockPosition);
@@ -221,8 +236,9 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public void refreshBlockStateId(BlockPosition blockPosition, short blockStateId) {
+    public void refreshBlockStateId(@NotNull BlockPosition blockPosition, short blockStateId) {
         final Chunk chunk = getChunkAt(blockPosition.getX(), blockPosition.getZ());
+        Check.notNull(chunk, "You cannot refresh a block in a null chunk!");
         synchronized (chunk) {
             chunk.refreshBlockStateId(blockPosition.getX(), blockPosition.getY(),
                     blockPosition.getZ(), blockStateId);
@@ -232,9 +248,9 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Call {@link CustomBlock#onDestroy(Instance, BlockPosition, Data)} for {@code previousBlock}
+     * Calls {@link CustomBlock#onDestroy(Instance, BlockPosition, Data)} for {@code previousBlock}.
      * <p>
-     * WARNING {@code chunk} needs to be synchronized
+     * WARNING {@code chunk} needs to be synchronized.
      *
      * @param chunk         the chunk where the block is
      * @param index         the index of the block
@@ -247,9 +263,9 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Call {@link CustomBlock#onPlace(Instance, BlockPosition, Data)} for the current custom block at the position
+     * Calls {@link CustomBlock#onPlace(Instance, BlockPosition, Data)} for the current custom block at the position.
      * <p>
-     * WARNING {@code chunk} needs to be synchronized
+     * WARNING {@code chunk} needs to be synchronized.
      *
      * @param chunk         the chunk where the block is
      * @param index         the block index
@@ -264,7 +280,7 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Call the {@link BlockPlacementRule} for the specified block state id
+     * Calls the {@link BlockPlacementRule} for the specified block state id.
      *
      * @param blockStateId  the block state id to modify
      * @param blockPosition the block position
@@ -279,9 +295,9 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Executed when a block is modified, this is used to modify the states of neighbours blocks
+     * Executed when a block is modified, this is used to modify the states of neighbours blocks.
      * <p>
-     * For example, this can be used for redstone wires which need an understanding of its neighborhoods to take the right shape
+     * For example, this can be used for redstone wires which need an understanding of its neighborhoods to take the right shape.
      *
      * @param blockPosition the position of the modified block
      */
@@ -327,10 +343,16 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public boolean breakBlock(Player player, BlockPosition blockPosition) {
+    public boolean breakBlock(@NotNull Player player, @NotNull BlockPosition blockPosition) {
         player.resetTargetBlock();
 
         final Chunk chunk = getChunkAt(blockPosition);
+        Check.notNull(chunk, "You cannot break blocks in a null chunk!");
+
+        // Cancel if the chunk is read-only
+        if (chunk.isReadOnly()) {
+            return false;
+        }
 
         // Chunk unloaded, stop here
         if (!ChunkUtils.isLoaded(chunk))
@@ -360,9 +382,7 @@ public class InstanceContainer extends Instance {
             ParticlePacket particlePacket = ParticleCreator.createParticlePacket(Particle.BLOCK, false,
                     x + 0.5f, y, z + 0.5f,
                     0.4f, 0.5f, 0.4f,
-                    0.3f, 125, writer -> {
-                        writer.writeVarInt(blockStateId);
-                    });
+                    0.3f, 125, writer -> writer.writeVarInt(blockStateId));
 
             chunk.getViewers().forEach(p -> {
                 // The player who breaks the block already get particles client-side
@@ -377,12 +397,11 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public void loadChunk(int chunkX, int chunkZ, ChunkCallback callback) {
+    public void loadChunk(int chunkX, int chunkZ, @Nullable ChunkCallback callback) {
         final Chunk chunk = getChunk(chunkX, chunkZ);
         if (chunk != null) {
             // Chunk already loaded
-            if (callback != null)
-                callback.accept(chunk);
+            OptionalCallback.execute(callback, chunk);
         } else {
             // Retrieve chunk from somewhere else (file or create a new one using the ChunkGenerator)
             retrieveChunk(chunkX, chunkZ, callback);
@@ -390,26 +409,24 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public void loadOptionalChunk(int chunkX, int chunkZ, ChunkCallback callback) {
+    public void loadOptionalChunk(int chunkX, int chunkZ, @Nullable ChunkCallback callback) {
         final Chunk chunk = getChunk(chunkX, chunkZ);
         if (chunk != null) {
             // Chunk already loaded
-            if (callback != null)
-                callback.accept(chunk);
+            OptionalCallback.execute(callback, chunk);
         } else {
             if (hasEnabledAutoChunkLoad()) {
                 // Load chunk from StorageLocation or with ChunkGenerator
                 retrieveChunk(chunkX, chunkZ, callback);
             } else {
                 // Chunk not loaded, return null
-                if (callback != null)
-                    callback.accept(null);
+                OptionalCallback.execute(callback, null);
             }
         }
     }
 
     @Override
-    public void unloadChunk(Chunk chunk) {
+    public void unloadChunk(@NotNull Chunk chunk) {
         // Already unloaded chunk
         if (!ChunkUtils.isLoaded(chunk)) {
             return;
@@ -428,13 +445,13 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Save the instance ({@link #getUniqueId()} {@link #getData()}) and call {@link #saveChunksToStorage(Runnable)}
+     * Saves the instance ({@link #getUniqueId()} {@link #getData()}) and call {@link #saveChunksToStorage(Runnable)}.
      * <p>
-     * WARNING: {@link #getData()} needs to be a {@link SerializableData} in order to be saved
+     * WARNING: {@link #getData()} needs to be a {@link SerializableData} in order to be saved.
      *
-     * @param callback the callback once the saving is done
+     * @param callback the optional callback once the saving is done
      */
-    public void saveInstance(Runnable callback) {
+    public void saveInstance(@Nullable Runnable callback) {
         Check.notNull(getStorageLocation(), "You cannot save the instance if no StorageLocation has been defined");
 
         this.storageLocation.set(UUID_KEY, getUniqueId(), UUID.class);
@@ -450,7 +467,7 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Save the instance without callback
+     * Save the instance without callback.
      *
      * @see #saveInstance(Runnable)
      */
@@ -459,33 +476,13 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public void saveChunkToStorage(Chunk chunk, Runnable callback) {
-        chunkLoader.saveChunk(chunk, callback);
+    public void saveChunkToStorage(@NotNull Chunk chunk, Runnable callback) {
+        this.chunkLoader.saveChunk(chunk, callback);
     }
 
     @Override
     public void saveChunksToStorage(Runnable callback) {
-        if (chunkLoader.supportsParallelSaving()) {
-            ExecutorService parallelSavingThreadPool = new MinestomThread(MinecraftServer.THREAD_COUNT_PARALLEL_CHUNK_SAVING, MinecraftServer.THREAD_NAME_PARALLEL_CHUNK_SAVING, true);
-            getChunks().forEach(c -> parallelSavingThreadPool.execute(() -> {
-                saveChunkToStorage(c, null);
-            }));
-            try {
-                parallelSavingThreadPool.shutdown();
-                parallelSavingThreadPool.awaitTermination(1L, java.util.concurrent.TimeUnit.DAYS);
-                if (callback != null)
-                    callback.run();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        } else {
-            final Iterator<Chunk> chunkIterator = chunks.values().iterator();
-            while (chunkIterator.hasNext()) {
-                final Chunk chunk = chunkIterator.next();
-                final boolean isLast = !chunkIterator.hasNext();
-                saveChunkToStorage(chunk, isLast ? callback : null);
-            }
-        }
+        this.chunkLoader.saveChunks(chunks.values(), callback);
     }
 
     @Override
@@ -494,19 +491,21 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public ChunkBatch createChunkBatch(Chunk chunk) {
+    public ChunkBatch createChunkBatch(@NotNull Chunk chunk) {
         Check.notNull(chunk, "The chunk of a ChunkBatch cannot be null");
         return new ChunkBatch(this, chunk);
     }
 
     @Override
-    protected void retrieveChunk(int chunkX, int chunkZ, ChunkCallback callback) {
+    protected void retrieveChunk(int chunkX, int chunkZ, @Nullable ChunkCallback callback) {
         final boolean loaded = chunkLoader.loadChunk(this, chunkX, chunkZ, chunk -> {
             cacheChunk(chunk);
-            callChunkLoadEvent(chunkX, chunkZ);
             UPDATE_MANAGER.signalChunkLoad(this, chunkX, chunkZ);
-            if (callback != null)
-                callback.accept(chunk);
+            // Execute callback and event in the instance thread
+            scheduleNextTick(instance -> {
+                callChunkLoadEvent(chunkX, chunkZ);
+                OptionalCallback.execute(callback, chunk);
+            });
         });
 
         if (!loaded) {
@@ -516,7 +515,7 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    protected void createChunk(int chunkX, int chunkZ, ChunkCallback callback) {
+    protected void createChunk(int chunkX, int chunkZ, @Nullable ChunkCallback callback) {
         Biome[] biomes = new Biome[Chunk.BIOME_COUNT];
         if (chunkGenerator == null) {
             Arrays.fill(biomes, MinecraftServer.getBiomeManager().getById(0));
@@ -524,27 +523,19 @@ public class InstanceContainer extends Instance {
             chunkGenerator.fillBiomes(biomes, chunkX, chunkZ);
         }
 
-        final Chunk chunk;
-        final BlockProvider blockProvider = chunkDecider != null ? chunkDecider.apply(chunkX, chunkZ) : null;
-        if (blockProvider != null) {
-            // Use static chunk
-            chunk = new StaticChunk(this, biomes, chunkX, chunkZ, blockProvider);
-        } else {
-            // Use dynamic chunk
-            chunk = new DynamicChunk(this, biomes, chunkX, chunkZ);
-        }
+        final Chunk chunk = chunkSupplier.getChunk(this, biomes, chunkX, chunkZ);
+        Check.notNull(chunk, "Chunks supplied by a ChunkSupplier cannot be null.");
 
         cacheChunk(chunk);
 
-        if (chunkGenerator != null && blockProvider == null) {
+        if (chunkGenerator != null && chunk.shouldGenerate()) {
             // Execute the chunk generator to populate the chunk
             final ChunkBatch chunkBatch = createChunkBatch(chunk);
 
             chunkBatch.flushChunkGenerator(chunkGenerator, callback);
         } else {
             // No chunk generator, execute the callback with the empty chunk
-            if (callback != null)
-                callback.accept(chunk);
+            OptionalCallback.execute(callback, chunk);
         }
 
         UPDATE_MANAGER.signalChunkLoad(this, chunkX, chunkZ);
@@ -562,13 +553,41 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public boolean isInVoid(Position position) {
+    public boolean isInVoid(@NotNull Position position) {
         // TODO: customizable
         return position.getY() < -64;
     }
 
     /**
-     * Get all the {@link SharedInstance} linked to this container
+     * Changes which type of {@link Chunk} implementation to use once one needs to be loaded.
+     * <p>
+     * Uses {@link DynamicChunk} by default.
+     * <p>
+     * WARNING: if you need to save this instance's chunks later,
+     * the code needs to be predictable for {@link IChunkLoader#loadChunk(Instance, int, int, ChunkCallback)}
+     * to create the correct type of {@link Chunk}. tl;dr: Need chunk save = no random type.
+     *
+     * @param chunkSupplier the new {@link ChunkSupplier} of this instance, chunks need to be non-null
+     * @throws NullPointerException if {@code chunkSupplier} is null
+     */
+    public void setChunkSupplier(@NotNull ChunkSupplier chunkSupplier) {
+        Check.notNull(chunkSupplier, "The chunk supplier cannot be null, you can use a StaticChunk for a lightweight implementation");
+        this.chunkSupplier = chunkSupplier;
+    }
+
+    /**
+     * Gets the current {@link ChunkSupplier}.
+     * <p>
+     * You shouldn't use it to generate a new chunk, but as a way to view which one is currently in use.
+     *
+     * @return the current {@link ChunkSupplier}
+     */
+    public ChunkSupplier getChunkSupplier() {
+        return chunkSupplier;
+    }
+
+    /**
+     * Gets all the {@link SharedInstance} linked to this container.
      *
      * @return an unmodifiable {@link List} containing all the {@link SharedInstance} linked to this container
      */
@@ -577,9 +596,9 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Assign a {@link SharedInstance} to this container
+     * Assigns a {@link SharedInstance} to this container.
      * <p>
-     * Only used by {@link InstanceManager}
+     * Only used by {@link InstanceManager}, mostly unsafe.
      *
      * @param sharedInstance the shared instance to assign to this container
      */
@@ -588,7 +607,7 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Add a {@link Chunk} to the internal instance map
+     * Adds a {@link Chunk} to the internal instance map.
      *
      * @param chunk the chunk to cache
      */
@@ -608,10 +627,11 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Get all the instance chunks
+     * Gets all the instance chunks.
      *
      * @return the chunks of this instance
      */
+    @NotNull
     public Collection<Chunk> getChunks() {
         return Collections.unmodifiableCollection(chunks.values());
     }
@@ -627,7 +647,7 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Get the {@link IChunkLoader} of this instance
+     * Gets the {@link IChunkLoader} of this instance.
      *
      * @return the {@link IChunkLoader} of this instance
      */
@@ -636,7 +656,7 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Change the {@link IChunkLoader} of this instance (to change how chunks are retrieved when not already loaded)
+     * Changes the {@link IChunkLoader} of this instance (to change how chunks are retrieved when not already loaded).
      *
      * @param chunkLoader the new {@link IChunkLoader}
      */
@@ -645,9 +665,9 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Send a {@link BlockChangePacket} at the specified {@link BlockPosition} to set the block as {@code blockStateId}
+     * Sends a {@link BlockChangePacket} at the specified {@link BlockPosition} to set the block as {@code blockStateId}.
      * <p>
-     * WARNING: this does not change the internal block data, this is strictly visual for the players
+     * WARNING: this does not change the internal block data, this is strictly visual for the players.
      *
      * @param chunk         the chunk where the block is
      * @param blockPosition the block position
@@ -661,7 +681,7 @@ public class InstanceContainer extends Instance {
     }
 
     @Override
-    public void scheduleUpdate(int time, TimeUnit unit, BlockPosition position) {
+    public void scheduleUpdate(int time, @NotNull TimeUnit unit, @NotNull BlockPosition position) {
         final CustomBlock toUpdate = getCustomBlock(position);
         if (toUpdate == null) {
             return;
@@ -693,9 +713,9 @@ public class InstanceContainer extends Instance {
     }
 
     /**
-     * Unload all waiting chunks
+     * Unloads all waiting chunks.
      * <p>
-     * Unsafe because it has to be done on the same thread as the instance/chunks tick update
+     * Unsafe because it has to be done on the same thread as the instance/chunks tick update.
      */
     protected void UNSAFE_unloadChunks() {
         synchronized (this.scheduledChunksToRemove) {
